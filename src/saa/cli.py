@@ -248,13 +248,24 @@ def config(set_key, get_key, list_all):
         click.echo("Use --list to see all config, --get KEY to get a value")
 
 
-def _check_chromium_installed() -> bool:
+def _check_chromium_installed(system: bool = False) -> bool:
     """Check if Playwright Chromium is installed."""
+    import os
     import sys
-    from pathlib import Path
 
-    # Check common Playwright cache locations
-    if sys.platform == "darwin":
+    # For system installs, check /opt/playwright
+    if system:
+        system_dir = Path("/opt/playwright")
+        if system_dir.exists():
+            chromium_dirs = list(system_dir.glob("chromium-*"))
+            return len(chromium_dirs) > 0
+        return False
+
+    # Check PLAYWRIGHT_BROWSERS_PATH first
+    browsers_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    if browsers_path:
+        cache_dir = Path(browsers_path)
+    elif sys.platform == "darwin":
         cache_dir = Path.home() / "Library/Caches/ms-playwright"
     else:
         cache_dir = Path.home() / ".cache/ms-playwright"
@@ -262,21 +273,26 @@ def _check_chromium_installed() -> bool:
     if not cache_dir.exists():
         return False
 
-    # Look for chromium directory
     chromium_dirs = list(cache_dir.glob("chromium-*"))
     return len(chromium_dirs) > 0
 
 
-def _install_chromium() -> bool:
+def _install_chromium(system: bool = False) -> bool:
     """Install Playwright Chromium. Returns True on success."""
     import shutil
     import subprocess
-    import sys
+    import os
 
     # Find playwright executable
     playwright_cmd = shutil.which("playwright")
 
-    # If not in PATH, try the pipx venv location
+    # Try system pipx location
+    if not playwright_cmd:
+        system_playwright = Path("/opt/pipx/venvs/saa/bin/playwright")
+        if system_playwright.exists():
+            playwright_cmd = str(system_playwright)
+
+    # Try user pipx location
     if not playwright_cmd:
         pipx_playwright = Path.home() / ".local/pipx/venvs/saa/bin/playwright"
         if pipx_playwright.exists():
@@ -285,8 +301,28 @@ def _install_chromium() -> bool:
     if not playwright_cmd:
         return False
 
-    result = subprocess.run([playwright_cmd, "install", "chromium"])
-    return result.returncode == 0
+    if system:
+        # Install to /opt/playwright system-wide
+        system_dir = Path("/opt/playwright")
+        system_dir.mkdir(parents=True, exist_ok=True)
+
+        env = os.environ.copy()
+        env["PLAYWRIGHT_BROWSERS_PATH"] = str(system_dir)
+
+        # Install chromium
+        result = subprocess.run([playwright_cmd, "install", "chromium"], env=env)
+        if result.returncode != 0:
+            return False
+
+        # Install system dependencies
+        subprocess.run([playwright_cmd, "install-deps"], env=env)
+
+        # Make readable by all users
+        subprocess.run(["chmod", "-R", "a+rX", str(system_dir)])
+        return True
+    else:
+        result = subprocess.run([playwright_cmd, "install", "chromium"])
+        return result.returncode == 0
 
 
 def _check_api_keys(keys_file: Path) -> dict:
@@ -412,21 +448,36 @@ def init(system: bool, update_plan: bool):
 
     # 1. Check Chromium
     click.echo("Checking dependencies...")
-    chromium_ok = _check_chromium_installed()
+    chromium_ok = _check_chromium_installed(system=system)
     if chromium_ok:
-        click.echo("  [ok] Playwright Chromium installed")
+        if system:
+            click.echo("  [ok] Playwright Chromium installed in /opt/playwright")
+        else:
+            click.echo("  [ok] Playwright Chromium installed")
     else:
         click.echo("  [!!] Playwright Chromium not found")
         if click.confirm("       Install Chromium now?", default=True):
-            click.echo("       Installing Chromium (this may take a minute)...")
-            if _install_chromium():
+            if system:
+                click.echo("       Installing Chromium to /opt/playwright (this may take a minute)...")
+            else:
+                click.echo("       Installing Chromium (this may take a minute)...")
+            if _install_chromium(system=system):
                 click.echo("       [ok] Chromium installed")
                 chromium_ok = True
             else:
                 click.echo("       [!!] Installation failed. Try manually:")
-                click.echo("            playwright install chromium")
+                if system:
+                    click.echo("            sudo mkdir -p /opt/playwright")
+                    click.echo("            sudo PLAYWRIGHT_BROWSERS_PATH=/opt/playwright playwright install chromium")
+                else:
+                    click.echo("            playwright install chromium")
         else:
-            click.echo("       Skipped. Install later with: playwright install chromium")
+            if system:
+                click.echo("       Skipped. Install later with:")
+                click.echo("            sudo mkdir -p /opt/playwright")
+                click.echo("            sudo PLAYWRIGHT_BROWSERS_PATH=/opt/playwright playwright install chromium")
+            else:
+                click.echo("       Skipped. Install later with: playwright install chromium")
 
     click.echo("")
 
