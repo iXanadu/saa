@@ -498,96 +498,132 @@ def init(system: bool, update_plan: bool):
     click.echo("")
 
     # 2. Setup config directory
+    system_dir = Path("/etc/saa")
+    has_system_config = system_dir.exists() and (system_dir / ".env").exists()
+
     if system:
-        saa_dir = Path("/etc/saa")
+        saa_dir = system_dir
         if os.geteuid() != 0:
             click.echo("Error: --system requires root. Use: sudo saa init --system", err=True)
             raise SystemExit(1)
     else:
         saa_dir = Path.home() / ".saa"
 
-    click.echo(f"Config directory: {saa_dir}")
-    saa_dir.mkdir(exist_ok=True)
+    # For user init with existing system config, only create keys
+    if not system and has_system_config:
+        click.echo(f"System config: {system_dir}")
+        click.echo(f"  [ok] Using system config at {system_dir}")
+        click.echo(f"  [ok] System plan at {system_dir / 'audit-plan.md'}")
 
-    # Copy default audit plan from package
-    plan_file = saa_dir / "audit-plan.md"
-    if not plan_file.exists():
-        try:
-            plan_content = _get_bundled_plan()
-            plan_file.write_text(plan_content)
-            click.echo(f"  [ok] Created {plan_file}")
-        except Exception as e:
-            click.echo(f"  [!!] Could not copy default audit plan: {e}")
-    else:
-        # Check if update available
-        if _plan_needs_update(saa_dir):
-            click.echo(f"  [ok] Exists  {plan_file}")
-            click.echo(f"       [!!] Newer plan available: saa init --update-plan")
+        # Only create user keys directory and file
+        click.echo(f"\nUser config: {saa_dir}")
+        saa_dir.mkdir(exist_ok=True)
+
+        keys_file = saa_dir / ".keys"
+        keys_created = False
+        if not keys_file.exists():
+            keys_file.write_text(
+                "# API Keys for LLM providers\n"
+                "# At least one key is required for LLM-powered analysis.\n"
+                "# Get keys from:\n"
+                "#   xAI:       https://console.x.ai/\n"
+                "#   Anthropic: https://console.anthropic.com/\n"
+                "#\n"
+                "# Uncomment and add your key(s):\n"
+                "# XAI_API_KEY=xai-your-key-here\n"
+                "# ANTHROPIC_API_KEY=sk-ant-your-key-here\n"
+            )
+            os.chmod(keys_file, 0o600)
+            click.echo(f"  [ok] Created {keys_file}")
+            keys_created = True
         else:
-            click.echo(f"  [ok] Exists  {plan_file}")
+            click.echo(f"  [ok] Exists  {keys_file}")
+    else:
+        # Full init (system install, or user install without system config)
+        click.echo(f"Config directory: {saa_dir}")
+        saa_dir.mkdir(exist_ok=True)
 
-    env_file = saa_dir / ".env"
-    if not env_file.exists():
-        # Different defaults for system vs user install
+        # Copy default audit plan from package
+        plan_file = saa_dir / "audit-plan.md"
+        if not plan_file.exists():
+            try:
+                plan_content = _get_bundled_plan()
+                plan_file.write_text(plan_content)
+                click.echo(f"  [ok] Created {plan_file}")
+            except Exception as e:
+                click.echo(f"  [!!] Could not copy default audit plan: {e}")
+        else:
+            # Check if update available
+            if _plan_needs_update(saa_dir):
+                click.echo(f"  [ok] Exists  {plan_file}")
+                click.echo(f"       [!!] Newer plan available: saa init --update-plan")
+            else:
+                click.echo(f"  [ok] Exists  {plan_file}")
+
+        env_file = saa_dir / ".env"
+        if not env_file.exists():
+            # Different defaults for system vs user install
+            if system:
+                playwright_line = "PLAYWRIGHT_BROWSERS_PATH=/opt/playwright\n"
+                plan_path = plan_file
+            else:
+                playwright_line = "# PLAYWRIGHT_BROWSERS_PATH=/opt/playwright\n"
+                plan_path = plan_file
+
+            env_file.write_text(
+                "# SAA Configuration\n"
+                "# Uncomment and edit the settings you want to change.\n"
+                "#\n"
+                "# Playwright browser location (system-wide: /opt/playwright)\n"
+                f"{playwright_line}"
+                "#\n"
+                "# Default LLM provider:model (xai:grok, anthropic:sonnet, anthropic:opus)\n"
+                "# SAA_DEFAULT_LLM=xai:grok\n"
+                "#\n"
+                "# Crawl limits\n"
+                "# SAA_MAX_PAGES=50\n"
+                "# SAA_DEFAULT_DEPTH=3\n"
+                "#\n"
+                f"# Default audit plan (created above)\n"
+                f"SAA_DEFAULT_PLAN={plan_path}\n"
+                "#\n"
+                "# Output directory for reports (auto-generates filename)\n"
+                "# If not set, prints to stdout\n"
+                "# SAA_OUTPUT_DIR=/var/saa/reports\n"
+            )
+            click.echo(f"  [ok] Created {env_file}")
+        else:
+            click.echo(f"  [ok] Exists  {env_file}")
+
+        # Keys file - only create for user installs (not system)
+        # System installs should have users create their own ~/.saa/.keys
+        keys_file = saa_dir / ".keys" if not system else Path.home() / ".saa" / ".keys"
+        keys_created = False
         if system:
-            playwright_line = "PLAYWRIGHT_BROWSERS_PATH=/opt/playwright\n"
+            # For system install, check if user has personal keys set up
+            user_keys = Path.home() / ".saa" / ".keys"
+            if user_keys.exists():
+                click.echo(f"  [ok] User keys at {user_keys}")
+            else:
+                click.echo(f"  [!!] No user keys - run 'saa init' to create ~/.saa/.keys")
+                keys_created = True  # Triggers "setup incomplete" message
+        elif not keys_file.exists():
+            keys_file.write_text(
+                "# API Keys for LLM providers\n"
+                "# At least one key is required for LLM-powered analysis.\n"
+                "# Get keys from:\n"
+                "#   xAI:       https://console.x.ai/\n"
+                "#   Anthropic: https://console.anthropic.com/\n"
+                "#\n"
+                "# Uncomment and add your key(s):\n"
+                "# XAI_API_KEY=xai-your-key-here\n"
+                "# ANTHROPIC_API_KEY=sk-ant-your-key-here\n"
+            )
+            os.chmod(keys_file, 0o600)
+            click.echo(f"  [ok] Created {keys_file}")
+            keys_created = True
         else:
-            playwright_line = "# PLAYWRIGHT_BROWSERS_PATH=/opt/playwright\n"
-
-        env_file.write_text(
-            "# SAA Configuration\n"
-            "# Uncomment and edit the settings you want to change.\n"
-            "#\n"
-            "# Playwright browser location (system-wide: /opt/playwright)\n"
-            f"{playwright_line}"
-            "#\n"
-            "# Default LLM provider:model (xai:grok, anthropic:sonnet, anthropic:opus)\n"
-            "# SAA_DEFAULT_LLM=xai:grok\n"
-            "#\n"
-            "# Crawl limits\n"
-            "# SAA_MAX_PAGES=50\n"
-            "# SAA_DEFAULT_DEPTH=3\n"
-            "#\n"
-            f"# Default audit plan (created above)\n"
-            f"SAA_DEFAULT_PLAN={plan_file}\n"
-            "#\n"
-            "# Output directory for reports (auto-generates filename)\n"
-            "# If not set, prints to stdout\n"
-            "# SAA_OUTPUT_DIR=/var/saa/reports\n"
-        )
-        click.echo(f"  [ok] Created {env_file}")
-    else:
-        click.echo(f"  [ok] Exists  {env_file}")
-
-    # Keys file - only create for user installs (not system)
-    # System installs should have users create their own ~/.saa/.keys
-    keys_file = saa_dir / ".keys" if not system else Path.home() / ".saa" / ".keys"
-    keys_created = False
-    if system:
-        # For system install, check if user has personal keys set up
-        user_keys = Path.home() / ".saa" / ".keys"
-        if user_keys.exists():
-            click.echo(f"  [ok] User keys at {user_keys}")
-        else:
-            click.echo(f"  [!!] No user keys - run 'saa init' to create ~/.saa/.keys")
-            keys_created = True  # Triggers "setup incomplete" message
-    elif not keys_file.exists():
-        keys_file.write_text(
-            "# API Keys for LLM providers\n"
-            "# At least one key is required for LLM-powered analysis.\n"
-            "# Get keys from:\n"
-            "#   xAI:       https://console.x.ai/\n"
-            "#   Anthropic: https://console.anthropic.com/\n"
-            "#\n"
-            "# Uncomment and add your key(s):\n"
-            "# XAI_API_KEY=xai-your-key-here\n"
-            "# ANTHROPIC_API_KEY=sk-ant-your-key-here\n"
-        )
-        os.chmod(keys_file, 0o600)
-        click.echo(f"  [ok] Created {keys_file}")
-        keys_created = True
-    else:
-        click.echo(f"  [ok] Exists  {keys_file}")
+            click.echo(f"  [ok] Exists  {keys_file}")
 
     # 3. Check API keys (from user's keys file or env vars)
     click.echo("")
