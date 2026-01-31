@@ -1,14 +1,14 @@
 # Project Context Memory
 
 **Last Updated:** 2026-01-31
-**Version:** 0.3.5
-**Status:** Feature-Complete - Ready for Server Deployment
+**Version:** 0.5.1
+**Status:** Published to PyPI - Production Ready
 
 ---
 
 ## Current Focus
 
-CLI polish complete. Self-update system, plan management, and quiet mode implemented. Ready for production server deployment and multi-user testing.
+First public release complete. Package published to PyPI as `site-audit-agent`. Ready for real-world use.
 
 ---
 
@@ -21,15 +21,18 @@ CLI polish complete. Self-update system, plan management, and quiet mode impleme
 - [x] LLM integration (xAI Grok, Anthropic Claude)
 - [x] Custom audit plan support (markdown)
 - [x] Report generation with LLM enhancement
-- [x] Private GitHub distribution (`iXanadu/saa`)
+- [x] Public GitHub repo (iXanadu/saa)
+- [x] PyPI distribution (site-audit-agent)
 - [x] pipx installation
 - [x] System-wide config (`/etc/saa/`) for multi-user servers
-- [x] `saa init --system` admin command
+- [x] User keys model (each user manages own API keys)
+- [x] `saa init --system` with user keys prompt
 - [x] Self-update system (`saa check`, `saa update`)
 - [x] Bundled default audit plan
 - [x] Plan versioning with archive/rollback
+- [x] Plan view/edit commands
 - [x] Quiet mode with updating status line (`-q`)
-- [x] Comprehensive help with examples
+- [x] GPL-3.0 license
 
 ---
 
@@ -37,12 +40,37 @@ CLI polish complete. Self-update system, plan management, and quiet mode impleme
 
 | Item | Value |
 |------|-------|
-| Python | 3.13+ (also tested with 3.14) |
+| Python | 3.10+ |
 | CLI Framework | Click |
 | Browser | Playwright + playwright-stealth |
-| LLM Providers | xAI (grok-3), Anthropic (claude-sonnet-4) |
+| LLM Providers | xAI (grok), Anthropic (claude-sonnet) |
 | Package Build | hatchling (pyproject.toml) |
-| Distribution | Private GitHub + SSH |
+| Distribution | PyPI + Public GitHub |
+| Package Name | site-audit-agent |
+| CLI Command | saa |
+
+---
+
+## Installation
+
+**From PyPI (recommended):**
+```bash
+pipx install site-audit-agent
+saa init
+vi ~/.saa/.keys
+```
+
+**Multi-user server:**
+```bash
+sudo apt install pipx
+sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install site-audit-agent
+sudo saa init --system
+```
+
+**From GitHub (latest dev):**
+```bash
+pipx install git+https://github.com/iXanadu/saa.git
+```
 
 ---
 
@@ -63,12 +91,15 @@ saa audit URL -o report.md        # Save to file
 saa audit URL -q                  # Quiet mode
 saa audit URL -v                  # Verbose
 saa audit URL -m competitor       # Light competitor scan
+saa audit http://localhost:8000   # Local dev server
 
 # Plan Management
-saa plan                          # Show current plan
+saa plan                          # Show current plan location
+saa plan --view                   # Output plan content
+saa plan --edit                   # Open in editor
+saa plan --update                 # Update to latest bundled
 saa plan --list                   # List archived versions
 saa plan --rollback               # Restore previous
-saa init --update-plan            # Update to latest bundled plan
 ```
 
 ---
@@ -76,48 +107,37 @@ saa init --update-plan            # Update to latest bundled plan
 ## Config Hierarchy
 
 ```
-1. /etc/saa/.keys, /etc/saa/.env   (system-wide, admin)
-2. ~/.saa/.keys, ~/.saa/.env       (user)
-3. ./.env, ./.keys                 (project)
-4. Environment variables           (highest priority)
+1. /etc/saa/.env                  (system-wide settings, admin)
+2. ~/.saa/.env, ~/.saa/.keys      (user settings and keys)
+3. ./.env, ./.keys                (project override)
+4. Environment variables          (highest priority)
 ```
+
+**Note:** API keys should be in ~/.saa/.keys (user-private) not /etc/saa/
 
 ---
 
-## Installation Commands
+## Public URLs
 
-**Single user (pipx):**
-```bash
-pipx install git+ssh://git@github.com/iXanadu/saa.git
-saa init
-```
-
-**Multi-user server:**
-```bash
-sudo pip install git+ssh://git@github.com/iXanadu/saa.git
-sudo playwright install chromium
-sudo playwright install-deps   # Linux only
-sudo saa init --system
-# Add API keys to /etc/saa/.keys
-# Setup group: saa-users
-```
+- **PyPI:** https://pypi.org/project/site-audit-agent/
+- **GitHub:** https://github.com/iXanadu/saa
 
 ---
 
 ## Next Session Priorities
 
-1. **Deploy to production server** - Test full workflow
-2. **Test multi-user access** - Group permissions, shared keys
-3. **Refine audit plan** - Improve report quality based on results
-4. **Run actual audits** - Real-world testing
+1. **Use in real project** - Actual site audits
+2. **Refine audit plan** - Improve based on results
+3. **Consider additional checks** - Accessibility, broken links
+4. **Automated tests** - pytest
 
 ---
 
 ## Known Issues
 
-- `pipx upgrade saa` doesn't work for git packages - use `saa update` instead
-- Two `saa` commands on dev machine (pyenv shim vs pipx) - use full path if needed
-- Playwright Chromium is separate from package - must install after pip
+- `saa update` tries upgrade then reinstall (handles both PyPI and GitHub installs)
+- Playwright Chromium is separate download (~300MB)
+- pyenv can intercept commands - code checks pipx paths first
 
 ---
 
@@ -125,17 +145,16 @@ sudo saa init --system
 
 | Version | Changes |
 |---------|---------|
-| 0.3.5 | Quiet mode (-q) with updating status line |
-| 0.3.4 | Expanded help examples |
-| 0.3.3 | Quick Start in main help |
-| 0.3.2 | Check alerts on missing config/plan |
-| 0.3.1 | Plan management (archive, rollback) |
-| 0.3.0 | Bundled audit plan, config options |
-| 0.2.1 | Improved version comparison in check |
-| 0.2.0 | Smart init (Chromium check, API key validation) |
-| 0.1.2 | macOS + Linux group commands |
-| 0.1.1 | saa check and saa update commands |
-| 0.1.0 | Initial release |
+| 0.5.1 | Fix pyenv/playwright path issue |
+| 0.5.0 | PyPI release (site-audit-agent) |
+| 0.4.8 | Chown user keys under sudo |
+| 0.4.7 | SUDO_USER for real user home |
+| 0.4.6 | Prompt for user keys in system init |
+| 0.4.5 | Smart init (detect system config) |
+| 0.4.4 | Check /opt/playwright for all users |
+| 0.4.1 | Permission model (system settings, user keys) |
+| 0.4.0 | Public release, GPL license |
+| 0.3.5 | Quiet mode (-q) |
 
 ---
 
@@ -147,7 +166,7 @@ sudo saa init --system
 
 ## Notes
 
-- Report v2 tested on dev.trustworthyagents.com - shows specific URLs
-- LLM timeout: 180s for large crawls
-- Default "own" mode: depth=10, max_pages=200
-- Archived plans stored in `{config}/plans/` with timestamps
+- First open source contribution!
+- Package name `saa` was taken on PyPI, using `site-audit-agent`
+- CLI command remains `saa`
+- Works with localhost URLs for local dev testing

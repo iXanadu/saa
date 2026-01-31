@@ -1,8 +1,8 @@
 # Project Codebase State
 
 **Last Updated:** 2026-01-31
-**Version:** 0.3.5
-**Status:** Feature-Complete CLI - Ready for Server Deployment
+**Version:** 0.5.1
+**Status:** Published to PyPI - Production Ready
 
 ---
 
@@ -10,13 +10,17 @@
 
 Site Audit Agent (SAA) - CLI tool for automated website audits using stealthy headless Chromium and LLM-powered analysis.
 
+**Public URLs:**
+- PyPI: https://pypi.org/project/site-audit-agent/
+- GitHub: https://github.com/iXanadu/saa
+
 ---
 
 ## Architecture
 
 ```
 src/saa/
-├── __init__.py      # Package version (0.3.5)
+├── __init__.py      # Package version (0.5.1)
 ├── cli.py           # Click CLI (audit, config, init, check, update, plan)
 ├── config.py        # Hierarchical config loading (/etc/saa → ~/.saa → .env)
 ├── models.py        # Pydantic models (PageData, Finding, etc.)
@@ -38,10 +42,14 @@ src/saa/
 | `saa audit URL` | Run audit on URL |
 | `saa init` | Setup config, check dependencies |
 | `saa init --system` | Setup system-wide config (/etc/saa/) |
-| `saa init --update-plan` | Update audit plan (archives old) |
 | `saa check` | Check for updates (code and plan) |
 | `saa update` | Update via pipx |
-| `saa plan` | Manage audit plans (list, rollback) |
+| `saa plan` | Show current plan location |
+| `saa plan --view` | Output plan content |
+| `saa plan --edit` | Open plan in editor |
+| `saa plan --update` | Update to latest bundled plan |
+| `saa plan --list` | List archived plans |
+| `saa plan --rollback` | Restore previous plan |
 | `saa config --list` | Show current config |
 
 ---
@@ -61,39 +69,55 @@ src/saa/
 
 ---
 
-## Recent Work (2026-01-31 Session 2)
+## Recent Work (2026-01-31 - Public Release)
 
-### Self-Update System
-- `saa check` - Compares installed vs GitHub version
-- `saa update` - Runs pipx reinstall
-- Detects missing config/plan and advises
+### Public Release
+- GPL-3.0 license added
+- Public GitHub repo at iXanadu/saa
+- Published to PyPI as `site-audit-agent`
 
-### Plan Management
-- Default audit plan bundled with package
-- `saa init` copies plan to config directory
-- `saa init --update-plan` - Updates plan, archives old to `plans/`
-- `saa plan --list` - List archived plans
-- `saa plan --rollback` - Restore previous plan
+### Permission Model
+- System settings in /etc/saa/.env (shared, no keys)
+- User keys in ~/.saa/.keys (private per user)
+- Config loading skips unreadable files gracefully
 
-### UX Improvements
-- `--quiet/-q` mode with updating status line
-- Comprehensive help examples
-- macOS + Linux group commands in init help
+### Smart Init
+- Detects system config, only creates user keys
+- System init prompts for user keys creation
+- Uses SUDO_USER for real user home
+- Chowns files to real user under sudo
+- Checks /opt/playwright for all users
+
+### Plan Commands
+- `--view` to output content
+- `--edit` to open in editor
+- `--update` to get latest bundled
+- `--bundled` to show default
+
+### Compatibility
+- Checks pipx venv paths before PATH (fixes pyenv issues)
 
 ---
 
 ## Installation
 
+**From PyPI (recommended):**
 ```bash
-# Single user (pipx)
-pipx install git+ssh://git@github.com/iXanadu/saa.git
+pipx install site-audit-agent
 saa init
+vi ~/.saa/.keys
+```
 
-# Multi-user server
-sudo pip install git+ssh://git@github.com/iXanadu/saa.git
-sudo playwright install chromium
-sudo playwright install-deps   # Linux only
+**Multi-user server:**
+```bash
+sudo apt install pipx
+sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install site-audit-agent
 sudo saa init --system
+```
+
+**From GitHub:**
+```bash
+pipx install git+https://github.com/iXanadu/saa.git
 ```
 
 ---
@@ -102,9 +126,10 @@ sudo saa init --system
 
 | Location | Purpose | Precedence |
 |----------|---------|------------|
-| `/etc/saa/` | System-wide (admin) | 1 (lowest) |
-| `~/.saa/` | User config | 2 |
-| `./.env` | Project override | 3 |
+| `/etc/saa/.env` | System-wide settings | 1 (lowest) |
+| `~/.saa/.env` | User settings | 2 |
+| `~/.saa/.keys` | User API keys | 2 |
+| `./.env`, `./.keys` | Project override | 3 |
 | Environment vars | Runtime override | 4 (highest) |
 
 ---
@@ -112,12 +137,13 @@ sudo saa init --system
 ## Config Files
 
 ```
-{config_dir}/
-├── .env              # Settings (LLM, crawl limits)
-├── .keys             # API keys (XAI_API_KEY, ANTHROPIC_API_KEY)
-├── audit-plan.md     # Default audit plan
-└── plans/            # Archived plan versions
-    └── audit-plan_{timestamp}.md
+/etc/saa/           # System (admin creates)
+├── .env            # Shared settings
+└── audit-plan.md   # Default plan
+
+~/.saa/             # User (saa init creates)
+├── .keys           # API keys (private!)
+└── (optional .env) # User overrides
 ```
 
 ---
@@ -133,31 +159,35 @@ sudo saa init --system
 | `SAA_DEFAULT_DEPTH` | Max crawl depth |
 | `XAI_API_KEY` | xAI API key |
 | `ANTHROPIC_API_KEY` | Anthropic API key |
+| `PLAYWRIGHT_BROWSERS_PATH` | Browser location (/opt/playwright for system) |
 
 ---
 
 ## Testing Status
 
-- [x] Manual testing on dev.trustworthyagents.com
-- [x] pipx install tested
-- [x] Self-update system tested
-- [x] Plan management tested
-- [ ] Multi-user server deployment (next)
+- [x] Manual testing on websites
+- [x] pipx install from PyPI tested
+- [x] pipx install from GitHub tested
+- [x] Multi-user server deployment tested
+- [x] macOS install with pyenv tested
+- [x] localhost URL audits work
 - [ ] Automated tests (pytest)
 
 ---
 
 ## Next Planned Work
 
-1. Deploy and test on production server
-2. Test multi-user access with group permissions
-3. Refine audit plan based on report quality
-4. Consider additional checks (broken links, accessibility)
+1. Use in real projects
+2. Refine audit plan based on results
+3. Consider additional checks (accessibility, broken links)
+4. Automated tests
 
 ---
 
 ## Reference
 
+- **PyPI:** https://pypi.org/project/site-audit-agent/
+- **GitHub:** https://github.com/iXanadu/saa
 - **Specs:** `claude/specs/`
 - **Bundled Plan:** `src/saa/data/default-audit-plan.md`
 - **Session Progress:** `claude/session_progress/`
