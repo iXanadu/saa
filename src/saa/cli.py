@@ -247,9 +247,60 @@ def _check_api_keys(keys_file: Path) -> dict:
     return keys
 
 
+def _get_bundled_plan() -> str:
+    """Get the bundled default audit plan content."""
+    import importlib.resources as pkg_resources
+    try:
+        # Python 3.11+
+        plan_source = pkg_resources.files("saa.data").joinpath("default-audit-plan.md")
+        return plan_source.read_text()
+    except (TypeError, AttributeError):
+        # Fallback for older Python
+        with pkg_resources.open_text("saa.data", "default-audit-plan.md") as f:
+            return f.read()
+
+
+def _get_saa_dir(system: bool) -> Path:
+    """Get the SAA config directory path."""
+    if system:
+        return Path("/etc/saa")
+    return Path.home() / ".saa"
+
+
+def _archive_plan(saa_dir: Path, plan_file: Path) -> Path | None:
+    """Archive existing plan to plans/ directory. Returns archive path."""
+    from datetime import datetime
+
+    if not plan_file.exists():
+        return None
+
+    plans_dir = saa_dir / "plans"
+    plans_dir.mkdir(exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    archive_path = plans_dir / f"audit-plan_{timestamp}.md"
+    archive_path.write_text(plan_file.read_text())
+    return archive_path
+
+
+def _plan_needs_update(saa_dir: Path) -> bool:
+    """Check if installed plan differs from bundled plan."""
+    plan_file = saa_dir / "audit-plan.md"
+    if not plan_file.exists():
+        return True
+
+    try:
+        bundled = _get_bundled_plan()
+        installed = plan_file.read_text()
+        return bundled.strip() != installed.strip()
+    except Exception:
+        return False
+
+
 @main.command()
 @click.option("--system", is_flag=True, help="Initialize system-wide config at /etc/saa/ (requires sudo)")
-def init(system: bool):
+@click.option("--update-plan", is_flag=True, help="Update audit plan to latest version (archives old)")
+def init(system: bool, update_plan: bool):
     """Initialize SAA and check dependencies.
 
     Checks Playwright/Chromium, creates config files, validates setup.
@@ -262,11 +313,40 @@ def init(system: bool):
 
     \b
     Examples:
-      saa init           # Create ~/.saa/ for current user
-      sudo saa init --system  # Create /etc/saa/ for all users
+      saa init                    # Create ~/.saa/ for current user
+      sudo saa init --system      # Create /etc/saa/ for all users
+      saa init --update-plan      # Update audit plan, archive old version
     """
     import os
-    from pathlib import Path
+
+    # Handle --update-plan separately (quick path)
+    if update_plan:
+        saa_dir = _get_saa_dir(system)
+        if system and os.geteuid() != 0:
+            click.echo("Error: --system requires root.", err=True)
+            raise SystemExit(1)
+
+        plan_file = saa_dir / "audit-plan.md"
+        if not saa_dir.exists():
+            click.echo(f"Error: Config directory not found: {saa_dir}", err=True)
+            click.echo("Run 'saa init' first.")
+            raise SystemExit(1)
+
+        try:
+            # Archive existing plan
+            if plan_file.exists():
+                archive_path = _archive_plan(saa_dir, plan_file)
+                click.echo(f"Archived: {archive_path}")
+
+            # Install new plan
+            plan_content = _get_bundled_plan()
+            plan_file.write_text(plan_content)
+            click.echo(f"Updated:  {plan_file}")
+            click.echo("\nTo rollback: saa plan --rollback")
+        except Exception as e:
+            click.echo(f"Error updating plan: {e}", err=True)
+            raise SystemExit(1)
+        return
 
     click.echo("SAA Setup\n")
 
@@ -306,21 +386,18 @@ def init(system: bool):
     plan_file = saa_dir / "audit-plan.md"
     if not plan_file.exists():
         try:
-            import importlib.resources as pkg_resources
-            try:
-                # Python 3.11+
-                plan_source = pkg_resources.files("saa.data").joinpath("default-audit-plan.md")
-                plan_content = plan_source.read_text()
-            except (TypeError, AttributeError):
-                # Fallback for older Python
-                with pkg_resources.open_text("saa.data", "default-audit-plan.md") as f:
-                    plan_content = f.read()
+            plan_content = _get_bundled_plan()
             plan_file.write_text(plan_content)
             click.echo(f"  [ok] Created {plan_file}")
         except Exception as e:
             click.echo(f"  [!!] Could not copy default audit plan: {e}")
     else:
-        click.echo(f"  [ok] Exists  {plan_file}")
+        # Check if update available
+        if _plan_needs_update(saa_dir):
+            click.echo(f"  [ok] Exists  {plan_file}")
+            click.echo(f"       [!!] Newer plan available: saa init --update-plan")
+        else:
+            click.echo(f"  [ok] Exists  {plan_file}")
 
     env_file = saa_dir / ".env"
     if not env_file.exists():
@@ -467,10 +544,22 @@ def check():
 
             # Compare versions
             if remote_version == __version__:
-                click.echo("\n[ok] You're up to date!")
+                click.echo("\n[ok] Code is up to date!")
             else:
                 click.echo(f"\n[!!] Update available: {__version__} -> {remote_version}")
                 click.echo("     Run: saa update")
+
+            # Check if bundled plan in new version differs from installed
+            remote_plan = Path(tmpdir) / "src" / "saa" / "data" / "default-audit-plan.md"
+            if remote_plan.exists():
+                # Check both user and system locations
+                for saa_dir in [Path.home() / ".saa", Path("/etc/saa")]:
+                    plan_file = saa_dir / "audit-plan.md"
+                    if plan_file.exists():
+                        if remote_plan.read_text().strip() != plan_file.read_text().strip():
+                            click.echo(f"\n[!!] New audit plan available for {saa_dir}")
+                            click.echo("     Run: saa init --update-plan")
+                        break
     except subprocess.TimeoutExpired:
         click.echo("Timeout connecting to GitHub")
     except Exception as e:
@@ -503,6 +592,80 @@ def update():
     if result.returncode == 0:
         click.echo("\nUpdate complete! Run 'saa check' to verify.")
     raise SystemExit(result.returncode)
+
+
+@main.command()
+@click.option("--system", is_flag=True, help="Use system config at /etc/saa/")
+@click.option("--list", "list_plans", is_flag=True, help="List archived plans")
+@click.option("--rollback", is_flag=True, help="Rollback to previous plan version")
+@click.option("--show", is_flag=True, help="Show current plan path")
+def plan(system: bool, list_plans: bool, rollback: bool, show: bool):
+    """Manage audit plans.
+
+    \b
+    Examples:
+      saa plan --show              # Show current plan location
+      saa plan --list              # List archived plan versions
+      saa plan --rollback          # Restore previous plan version
+    """
+    import os
+
+    saa_dir = _get_saa_dir(system)
+    if system and os.geteuid() != 0:
+        click.echo("Error: --system requires root.", err=True)
+        raise SystemExit(1)
+
+    plan_file = saa_dir / "audit-plan.md"
+    plans_dir = saa_dir / "plans"
+
+    if show or (not list_plans and not rollback):
+        # Default: show current plan info
+        if plan_file.exists():
+            click.echo(f"Current plan: {plan_file}")
+            if _plan_needs_update(saa_dir):
+                click.echo("[!!] Newer version available: saa init --update-plan")
+        else:
+            click.echo("No plan configured. Run: saa init")
+        return
+
+    if list_plans:
+        if not plans_dir.exists() or not list(plans_dir.glob("*.md")):
+            click.echo("No archived plans found.")
+            return
+
+        click.echo(f"Archived plans in {plans_dir}:\n")
+        archives = sorted(plans_dir.glob("*.md"), reverse=True)
+        for i, archive in enumerate(archives):
+            click.echo(f"  {i+1}. {archive.name}")
+        click.echo(f"\nTo rollback: saa plan --rollback")
+        return
+
+    if rollback:
+        if not plans_dir.exists():
+            click.echo("No archived plans to rollback to.")
+            raise SystemExit(1)
+
+        archives = sorted(plans_dir.glob("*.md"), reverse=True)
+        if not archives:
+            click.echo("No archived plans to rollback to.")
+            raise SystemExit(1)
+
+        # Get most recent archive
+        latest_archive = archives[0]
+        click.echo(f"Rolling back to: {latest_archive.name}")
+
+        # Archive current plan first (so we can undo the rollback)
+        if plan_file.exists():
+            archive_path = _archive_plan(saa_dir, plan_file)
+            click.echo(f"Archived current: {archive_path.name}")
+
+        # Restore from archive
+        plan_file.write_text(latest_archive.read_text())
+        click.echo(f"Restored: {plan_file}")
+
+        # Remove the archive we just restored from
+        latest_archive.unlink()
+        click.echo("Done. Run 'saa plan --list' to see remaining archives.")
 
 
 if __name__ == "__main__":
