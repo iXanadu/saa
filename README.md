@@ -181,9 +181,12 @@ saa update               # Update via pipx reinstall
 
 ```bash
 saa plan                 # Show current plan location
+saa plan --view          # Output current plan to stdout
+saa plan --edit          # Open plan in editor ($EDITOR or vi)
+saa plan --update        # Update to latest bundled plan
+saa plan --bundled       # Show the bundled default plan
 saa plan --list          # List archived versions
 saa plan --rollback      # Restore previous version
-saa init --update-plan   # Update to latest bundled plan
 ```
 
 ### View Config

@@ -756,17 +756,27 @@ def update():
 @click.option("--system", is_flag=True, help="Use system config at /etc/saa/")
 @click.option("--list", "list_plans", is_flag=True, help="List archived plans")
 @click.option("--rollback", is_flag=True, help="Rollback to previous plan version")
-@click.option("--show", is_flag=True, help="Show current plan path")
-def plan(system: bool, list_plans: bool, rollback: bool, show: bool):
+@click.option("--show", is_flag=True, help="Show current plan path (default)")
+@click.option("--view", is_flag=True, help="Output plan content to stdout")
+@click.option("--edit", is_flag=True, help="Open plan in editor ($EDITOR or vi)")
+@click.option("--update", is_flag=True, help="Update to latest bundled plan")
+@click.option("--bundled", is_flag=True, help="Show bundled plan (not your current)")
+def plan(system: bool, list_plans: bool, rollback: bool, show: bool,
+         view: bool, edit: bool, update: bool, bundled: bool):
     """Manage audit plans.
 
     \b
     Examples:
-      saa plan --show              # Show current plan location
+      saa plan                     # Show current plan location
+      saa plan --view              # Output current plan content
+      saa plan --edit              # Open plan in editor
+      saa plan --update            # Update to latest bundled plan
+      saa plan --bundled           # Show the bundled default plan
       saa plan --list              # List archived plan versions
       saa plan --rollback          # Restore previous plan version
     """
     import os
+    import subprocess
 
     saa_dir = _get_saa_dir(system)
     if system and os.geteuid() != 0:
@@ -776,12 +786,51 @@ def plan(system: bool, list_plans: bool, rollback: bool, show: bool):
     plan_file = saa_dir / "audit-plan.md"
     plans_dir = saa_dir / "plans"
 
+    # --bundled: show the bundled plan content
+    if bundled:
+        click.echo(_get_bundled_plan())
+        return
+
+    # --view: output current plan content
+    if view:
+        if plan_file.exists():
+            click.echo(plan_file.read_text())
+        else:
+            click.echo("No plan configured. Run: saa init", err=True)
+            raise SystemExit(1)
+        return
+
+    # --edit: open plan in editor
+    if edit:
+        if not plan_file.exists():
+            click.echo("No plan configured. Run: saa init", err=True)
+            raise SystemExit(1)
+        editor = os.environ.get("EDITOR", "vi")
+        subprocess.run([editor, str(plan_file)])
+        return
+
+    # --update: update to latest bundled plan
+    if update:
+        if plan_file.exists():
+            # Check if already up to date
+            if not _plan_needs_update(saa_dir):
+                click.echo("Plan is already up to date.")
+                return
+            # Archive current plan
+            archive_path = _archive_plan(saa_dir, plan_file)
+            click.echo(f"Archived current: {archive_path.name}")
+
+        # Write new plan
+        plan_file.write_text(_get_bundled_plan())
+        click.echo(f"Updated: {plan_file}")
+        return
+
+    # Default (--show or no flags): show current plan info
     if show or (not list_plans and not rollback):
-        # Default: show current plan info
         if plan_file.exists():
             click.echo(f"Current plan: {plan_file}")
             if _plan_needs_update(saa_dir):
-                click.echo("[!!] Newer version available: saa init --update-plan")
+                click.echo("[!!] Newer version available: saa plan --update")
         else:
             click.echo("No plan configured. Run: saa init")
         return
