@@ -21,16 +21,25 @@ def main():
 
     \b
     Quick Start:
-      saa init                        # Setup config and API keys
-      saa audit https://example.com   # Run an audit
+      saa init                         # Setup config and API keys
+      saa audit https://example.com    # Run an audit
 
     \b
-    Examples:
-      saa audit https://mysite.com --mode own -v      # Deep audit, verbose
-      saa audit https://competitor.com --mode competitor
-      saa check                       # Check for updates
-      saa update                      # Update to latest version
-      saa plan --list                 # List archived plans
+    Audit Examples:
+      saa audit https://mysite.com -o report.md       # Save to file
+      saa audit https://mysite.com -v                 # Verbose output
+      saa audit https://mysite.com -l anthropic:sonnet  # Use Claude
+      saa audit https://mysite.com --no-llm           # Skip LLM analysis
+      saa audit https://competitor.com -m competitor  # Light competitor scan
+      saa audit https://mysite.com -p custom-plan.md  # Custom audit plan
+      saa audit https://mysite.com --pacing high      # Slower, stealthier
+
+    \b
+    Management:
+      saa check                        # Check for updates
+      saa update                       # Update to latest version
+      saa plan --list                  # List archived plans
+      saa config --list                # Show current config
     """
     pass
 
