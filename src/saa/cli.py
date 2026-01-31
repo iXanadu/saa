@@ -163,36 +163,97 @@ def config(set_key, get_key, list_all):
 
 
 @main.command()
-def init():
-    """Initialize ~/.saa directory with defaults."""
+@click.option("--system", is_flag=True, help="Initialize system-wide config at /etc/saa/ (requires sudo)")
+def init(system: bool):
+    """Initialize SAA configuration directory.
+
+    Creates config files with templates:
+
+    \b
+    .env   - Settings (chromium path, default LLM, crawl limits)
+    .keys  - API keys for LLM providers (xAI, Anthropic)
+
+    \b
+    Config loading priority (later overrides earlier):
+      1. /etc/saa/    - System-wide (admin-managed, for multi-user servers)
+      2. ~/.saa/      - User config (single-user or user overrides)
+      3. ./.env       - Project-specific overrides
+
+    \b
+    Examples:
+      saa init           # Create ~/.saa/ for current user
+      sudo saa init --system  # Create /etc/saa/ for all users
+    """
     import os
     from pathlib import Path
 
-    saa_dir = Path.home() / ".saa"
+    if system:
+        saa_dir = Path("/etc/saa")
+        if os.geteuid() != 0:
+            click.echo("Error: --system requires root. Use: sudo saa init --system", err=True)
+            raise SystemExit(1)
+    else:
+        saa_dir = Path.home() / ".saa"
+
     saa_dir.mkdir(exist_ok=True)
+    click.echo(f"Initializing SAA config at {saa_dir}")
+    click.echo("")
 
     env_file = saa_dir / ".env"
     if not env_file.exists():
         env_file.write_text(
             "# SAA Configuration\n"
-            "# SAA_CHROMIUM_PATH=/Applications/Chromium.app/Contents/MacOS/Chromium\n"
-            "# SAA_DEFAULT_LLM=xai:grok-4\n"
+            "# Uncomment and edit the settings you want to change.\n"
+            "#\n"
+            "# Path to Chromium browser (auto-detected if not set)\n"
+            "# SAA_CHROMIUM_PATH=/usr/bin/chromium\n"
+            "#\n"
+            "# Default LLM provider:model (xai:grok, anthropic:sonnet, anthropic:opus)\n"
+            "# SAA_DEFAULT_LLM=xai:grok\n"
+            "#\n"
+            "# Crawl limits\n"
             "# SAA_MAX_PAGES=50\n"
             "# SAA_DEFAULT_DEPTH=3\n"
         )
-        click.echo(f"Created {env_file}")
+        click.echo(f"  Created: {env_file}")
+        click.echo(f"           Settings like chromium path, default LLM, crawl limits")
+    else:
+        click.echo(f"  Exists:  {env_file}")
 
     keys_file = saa_dir / ".keys"
     if not keys_file.exists():
         keys_file.write_text(
-            "# API Keys (keep secret!)\n"
-            "# XAI_API_KEY=your-key-here\n"
-            "# ANTHROPIC_API_KEY=your-key-here\n"
+            "# API Keys for LLM providers\n"
+            "# At least one key is required for LLM-powered analysis.\n"
+            "# Get keys from:\n"
+            "#   xAI:       https://console.x.ai/\n"
+            "#   Anthropic: https://console.anthropic.com/\n"
+            "#\n"
+            "# Uncomment and add your key(s):\n"
+            "# XAI_API_KEY=xai-your-key-here\n"
+            "# ANTHROPIC_API_KEY=sk-ant-your-key-here\n"
         )
-        os.chmod(keys_file, 0o600)  # Restrict permissions
-        click.echo(f"Created {keys_file} (permissions: 600)")
+        if system:
+            os.chmod(keys_file, 0o640)  # root:group readable
+            click.echo(f"  Created: {keys_file} (permissions: 640)")
+        else:
+            os.chmod(keys_file, 0o600)  # owner only
+            click.echo(f"  Created: {keys_file} (permissions: 600)")
+        click.echo(f"           API keys for xAI (Grok) and/or Anthropic (Claude)")
+    else:
+        click.echo(f"  Exists:  {keys_file}")
 
-    click.echo(f"SAA initialized at {saa_dir}")
+    click.echo("")
+    click.echo("Next steps:")
+    click.echo(f"  1. Edit {keys_file} and add your API key(s)")
+    click.echo(f"  2. (Optional) Edit {env_file} to customize settings")
+    click.echo(f"  3. Run: saa audit https://example.com")
+    if system:
+        click.echo("")
+        click.echo("For multi-user access, set group permissions:")
+        click.echo(f"  sudo groupadd saa-users")
+        click.echo(f"  sudo chgrp saa-users {keys_file}")
+        click.echo(f"  sudo usermod -aG saa-users USERNAME")
 
 
 if __name__ == "__main__":
