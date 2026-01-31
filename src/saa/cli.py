@@ -600,12 +600,29 @@ def init(system: bool, update_plan: bool):
         keys_file = saa_dir / ".keys" if not system else Path.home() / ".saa" / ".keys"
         keys_created = False
         if system:
-            # For system install, check if user has personal keys set up
-            user_keys = Path.home() / ".saa" / ".keys"
+            # For system install, offer to create user's personal keys
+            user_dir = Path.home() / ".saa"
+            user_keys = user_dir / ".keys"
             if user_keys.exists():
                 click.echo(f"  [ok] User keys at {user_keys}")
+            elif click.confirm(f"  [?] Create your personal keys file at {user_keys}?", default=True):
+                user_dir.mkdir(exist_ok=True)
+                user_keys.write_text(
+                    "# API Keys for LLM providers\n"
+                    "# At least one key is required for LLM-powered analysis.\n"
+                    "# Get keys from:\n"
+                    "#   xAI:       https://console.x.ai/\n"
+                    "#   Anthropic: https://console.anthropic.com/\n"
+                    "#\n"
+                    "# Uncomment and add your key(s):\n"
+                    "# XAI_API_KEY=xai-your-key-here\n"
+                    "# ANTHROPIC_API_KEY=sk-ant-your-key-here\n"
+                )
+                os.chmod(user_keys, 0o600)
+                click.echo(f"  [ok] Created {user_keys}")
+                keys_created = True
             else:
-                click.echo(f"  [!!] No user keys - run 'saa init' to create ~/.saa/.keys")
+                click.echo(f"  [!!] Skipped - run 'saa init' later to create keys")
                 keys_created = True  # Triggers "setup incomplete" message
         elif not keys_file.exists():
             keys_file.write_text(
@@ -662,11 +679,15 @@ def init(system: bool, update_plan: bool):
                 click.echo(f"  - Edit {keys_file} to add your API key(s)")
 
     # 5. Note for system installs
-    if system:
+    if system and not any_key:
+        user_keys = Path.home() / ".saa" / ".keys"
         click.echo("")
-        click.echo("System setup complete. Each user needs their own API keys:")
-        click.echo("  saa init          # Creates ~/.saa/.keys")
-        click.echo("  vi ~/.saa/.keys   # Add your API key(s)")
+        if user_keys.exists():
+            click.echo(f"Add your API keys: vi {user_keys}")
+        else:
+            click.echo("Each user needs their own API keys:")
+            click.echo("  saa init          # Creates ~/.saa/.keys")
+            click.echo("  vi ~/.saa/.keys   # Add your API key(s)")
 
 
 @main.command()
