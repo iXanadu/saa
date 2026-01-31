@@ -139,6 +139,12 @@ sudo saa init --system
 
 ---
 
+## User Preferences
+
+- **Editor:** Always suggest `vi` (not nano) - muscle memory
+
+---
+
 ## Notes
 
 - Report v2 tested on dev.trustworthyagents.com - shows specific URLs

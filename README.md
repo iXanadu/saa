@@ -30,7 +30,7 @@ pipx install git+ssh://git@github.com/iXanadu/saa.git
 saa init
 
 # Add your API keys
-nano ~/.saa/.keys
+vi ~/.saa/.keys
 ```
 
 ### Multi-User Server (Ubuntu/Debian)
@@ -52,7 +52,7 @@ sudo /opt/pipx/venvs/saa/bin/playwright install-deps
 sudo saa init --system
 
 # 5. Add API keys
-sudo nano /etc/saa/.keys
+sudo vi /etc/saa/.keys
 # Uncomment and add:
 # XAI_API_KEY=xai-your-key-here
 # ANTHROPIC_API_KEY=sk-ant-your-key-here
