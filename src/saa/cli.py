@@ -249,6 +249,19 @@ def config(set_key, get_key, list_all):
         click.echo("Use --list to see all config, --get KEY to get a value")
 
 
+def _get_real_user_home() -> Path:
+    """Get the real user's home directory, even when running under sudo."""
+    sudo_user = os.environ.get("SUDO_USER")
+    if sudo_user:
+        # Running under sudo - get the original user's home
+        import pwd
+        try:
+            return Path(pwd.getpwnam(sudo_user).pw_dir)
+        except KeyError:
+            pass
+    return Path.home()
+
+
 def _check_chromium_installed(system: bool = False) -> bool:
     """Check if Playwright Chromium is installed."""
     import sys
@@ -597,11 +610,12 @@ def init(system: bool, update_plan: bool):
 
         # Keys file - only create for user installs (not system)
         # System installs should have users create their own ~/.saa/.keys
-        keys_file = saa_dir / ".keys" if not system else Path.home() / ".saa" / ".keys"
+        real_home = _get_real_user_home()
+        keys_file = saa_dir / ".keys" if not system else real_home / ".saa" / ".keys"
         keys_created = False
         if system:
             # For system install, offer to create user's personal keys
-            user_dir = Path.home() / ".saa"
+            user_dir = real_home / ".saa"
             user_keys = user_dir / ".keys"
             if user_keys.exists():
                 click.echo(f"  [ok] User keys at {user_keys}")
@@ -645,7 +659,8 @@ def init(system: bool, update_plan: bool):
     # 3. Check API keys (from user's keys file or env vars)
     click.echo("")
     click.echo("API keys:")
-    user_keys_file = Path.home() / ".saa" / ".keys"
+    real_home = _get_real_user_home()
+    user_keys_file = real_home / ".saa" / ".keys"
     api_keys = _check_api_keys(user_keys_file if user_keys_file.exists() else None)
     any_key = False
     if api_keys["xai"]:
@@ -680,7 +695,7 @@ def init(system: bool, update_plan: bool):
 
     # 5. Note for system installs
     if system and not any_key:
-        user_keys = Path.home() / ".saa" / ".keys"
+        user_keys = _get_real_user_home() / ".saa" / ".keys"
         click.echo("")
         if user_keys.exists():
             click.echo(f"Add your API keys: vi {user_keys}")
