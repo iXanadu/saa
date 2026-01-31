@@ -251,9 +251,16 @@ def init(system: bool):
     if system:
         click.echo("")
         click.echo("For multi-user access, set group permissions:")
-        click.echo(f"  sudo groupadd saa-users")
-        click.echo(f"  sudo chgrp saa-users {keys_file}")
-        click.echo(f"  sudo usermod -aG saa-users USERNAME")
+        click.echo("")
+        click.echo("  Linux (Ubuntu/Debian):")
+        click.echo("    sudo groupadd saa-users")
+        click.echo("    sudo usermod -aG saa-users USERNAME")
+        click.echo(f"    sudo chgrp saa-users {keys_file}")
+        click.echo("")
+        click.echo("  macOS:")
+        click.echo("    sudo dseditgroup -o create saa-users")
+        click.echo("    sudo dseditgroup -o edit -a USERNAME -t user saa-users")
+        click.echo(f"    sudo chgrp saa-users {keys_file}")
 
 
 @main.command()
