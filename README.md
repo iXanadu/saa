@@ -23,6 +23,14 @@ playwright install chromium
 
 ## Configuration
 
+Config is loaded in order (later overrides earlier):
+1. `/etc/saa/` - System-wide (admin-managed)
+2. `~/.saa/` - User override
+3. `./.env`, `./.keys` - Project override
+4. Environment variables - Highest priority
+
+### Single-user setup
+
 After running `saa init`, edit the config files in `~/.saa/`:
 
 **~/.saa/.keys** (API keys - keep secret):
@@ -38,6 +46,36 @@ SAA_DEFAULT_LLM=xai:grok
 SAA_MAX_PAGES=50
 SAA_DEFAULT_DEPTH=3
 ```
+
+### Multi-user server setup (centrally managed keys)
+
+Admin sets up system-wide config so users don't need their own API keys:
+
+```bash
+# Create system config directory
+sudo mkdir -p /etc/saa
+
+# Add API keys
+sudo nano /etc/saa/.keys
+# XAI_API_KEY=your-key
+# ANTHROPIC_API_KEY=your-key
+
+# Add settings
+sudo nano /etc/saa/.env
+# SAA_CHROMIUM_PATH=/usr/bin/chromium
+# SAA_DEFAULT_LLM=xai:grok
+
+# Restrict access to keys (optional: create saa-users group)
+sudo groupadd saa-users
+sudo chown root:saa-users /etc/saa/.keys
+sudo chmod 640 /etc/saa/.keys
+
+# Add users who can run saa
+sudo usermod -aG saa-users projectA
+sudo usermod -aG saa-users projectB
+```
+
+Users in the `saa-users` group can now run `saa` without managing keys.
 
 ## Usage
 

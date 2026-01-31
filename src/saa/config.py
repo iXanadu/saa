@@ -41,25 +41,32 @@ def load_config() -> Config:
 
     Load order (later overrides earlier):
     1. Built-in defaults
-    2. ~/.saa/.env (global user config)
-    3. ~/.saa/.keys (global secrets)
-    4. ./.env (project config)
-    5. ./.keys (project secrets)
+    2. /etc/saa/.env and /etc/saa/.keys (system-wide, admin-managed)
+    3. ~/.saa/.env and ~/.saa/.keys (user override)
+    4. ./.env and ./.keys (project override)
+    5. Environment variables (highest priority)
     """
     config = Config()
 
-    # Global config
-    global_dir = Path.home() / ".saa"
-    if (global_dir / ".env").exists():
-        load_dotenv(global_dir / ".env")
-    if (global_dir / ".keys").exists():
-        load_dotenv(global_dir / ".keys")
+    # System-wide config (admin-managed)
+    system_dir = Path("/etc/saa")
+    if (system_dir / ".env").exists():
+        load_dotenv(system_dir / ".env")
+    if (system_dir / ".keys").exists():
+        load_dotenv(system_dir / ".keys")
 
-    # Project config
-    load_dotenv(".env")
-    load_dotenv(".keys")
+    # User config (override system)
+    user_dir = Path.home() / ".saa"
+    if (user_dir / ".env").exists():
+        load_dotenv(user_dir / ".env", override=True)
+    if (user_dir / ".keys").exists():
+        load_dotenv(user_dir / ".keys", override=True)
 
-    # Override from environment
+    # Project config (override user)
+    load_dotenv(".env", override=True)
+    load_dotenv(".keys", override=True)
+
+    # Override from environment (highest priority)
     config.chromium_path = os.getenv("SAA_CHROMIUM_PATH", config.chromium_path)
     config.default_llm = os.getenv("SAA_DEFAULT_LLM", config.default_llm)
     config.xai_api_key = os.getenv("XAI_API_KEY", "")
