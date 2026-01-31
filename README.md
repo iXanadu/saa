@@ -40,28 +40,18 @@ System-wide install with shared API keys - any user can run `saa`.
 **Prerequisite:** Root's SSH key must be added to GitHub (for private repo access).
 
 ```bash
-# 1. Install pipx system-wide
+# 1. Install pipx and SAA
 sudo apt install pipx
-
-# 2. Install SAA to /opt with binary in /usr/local/bin
 sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+ssh://git@github.com/iXanadu/saa.git
 
-# 3. Install Playwright Chromium system-wide
-sudo mkdir -p /opt/playwright
-sudo PLAYWRIGHT_BROWSERS_PATH=/opt/playwright /opt/pipx/venvs/saa/bin/playwright install chromium
-sudo PLAYWRIGHT_BROWSERS_PATH=/opt/playwright /opt/pipx/venvs/saa/bin/playwright install-deps
-sudo chmod -R a+rX /opt/playwright
-
-# 4. Initialize system config (auto-configures PLAYWRIGHT_BROWSERS_PATH)
+# 2. Initialize (auto-installs Playwright Chromium to /opt/playwright)
 sudo saa init --system
 
-# 5. Add API keys
+# 3. Add API keys
 sudo vi /etc/saa/.keys
-# Uncomment and add:
-# XAI_API_KEY=xai-your-key-here
-# ANTHROPIC_API_KEY=sk-ant-your-key-here
+# Uncomment and add your keys
 
-# 6. Verify installation
+# 4. Verify
 saa --version
 saa audit https://example.com --no-llm -o test.md
 ```
@@ -72,10 +62,6 @@ saa audit https://example.com --no-llm -o test.md
 # Prerequisites: root SSH key added to GitHub
 sudo apt install pipx
 sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+ssh://git@github.com/iXanadu/saa.git
-sudo mkdir -p /opt/playwright
-sudo PLAYWRIGHT_BROWSERS_PATH=/opt/playwright /opt/pipx/venvs/saa/bin/playwright install chromium
-sudo PLAYWRIGHT_BROWSERS_PATH=/opt/playwright /opt/pipx/venvs/saa/bin/playwright install-deps
-sudo chmod -R a+rX /opt/playwright
 sudo saa init --system
 sudo vi /etc/saa/.keys   # Add your API keys
 ```
