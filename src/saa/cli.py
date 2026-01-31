@@ -633,6 +633,12 @@ def init(system: bool, update_plan: bool):
                     "# ANTHROPIC_API_KEY=sk-ant-your-key-here\n"
                 )
                 os.chmod(user_keys, 0o600)
+                # Fix ownership when running under sudo
+                sudo_uid = os.environ.get("SUDO_UID")
+                sudo_gid = os.environ.get("SUDO_GID")
+                if sudo_uid and sudo_gid:
+                    os.chown(user_dir, int(sudo_uid), int(sudo_gid))
+                    os.chown(user_keys, int(sudo_uid), int(sudo_gid))
                 click.echo(f"  [ok] Created {user_keys}")
                 keys_created = True
             else:
