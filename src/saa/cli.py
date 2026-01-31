@@ -297,22 +297,24 @@ def _install_chromium(system: bool = False) -> bool:
     """Install Playwright Chromium. Returns True on success."""
     import shutil
     import subprocess
-    import os
 
-    # Find playwright executable
-    playwright_cmd = shutil.which("playwright")
+    # Find playwright executable - check pipx locations FIRST to avoid pyenv issues
+    playwright_cmd = None
 
-    # Try system pipx location
-    if not playwright_cmd:
-        system_playwright = Path("/opt/pipx/venvs/site-audit-agent/bin/playwright")
-        if system_playwright.exists():
-            playwright_cmd = str(system_playwright)
+    # Try system pipx location first
+    system_playwright = Path("/opt/pipx/venvs/site-audit-agent/bin/playwright")
+    if system_playwright.exists():
+        playwright_cmd = str(system_playwright)
 
     # Try user pipx location
     if not playwright_cmd:
         pipx_playwright = Path.home() / ".local/pipx/venvs/site-audit-agent/bin/playwright"
         if pipx_playwright.exists():
             playwright_cmd = str(pipx_playwright)
+
+    # Fall back to PATH (may be intercepted by pyenv, but worth trying)
+    if not playwright_cmd:
+        playwright_cmd = shutil.which("playwright")
 
     if not playwright_cmd:
         return False
