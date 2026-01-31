@@ -17,9 +17,10 @@ from saa.models import PageData, ImageData, LinkData, MetaTag, OpenGraphData
 class Crawler:
     """Async context manager for stealth web crawling."""
 
-    def __init__(self, config: Config, verbose: bool = False):
+    def __init__(self, config: Config, verbose: bool = False, progress_callback=None):
         self.config = config
         self.verbose = verbose
+        self.progress_callback = progress_callback  # Called with (current, total, url)
         self.stealth = Stealth()
         self._playwright = None
         self.browser = None
@@ -292,6 +293,8 @@ class Crawler:
             # Fetch the page
             if self.verbose:
                 print(f"[{len(pages)+1}/{max_pages}] Depth {depth}: {url}")
+            elif self.progress_callback:
+                self.progress_callback(len(pages) + 1, max_pages, url)
 
             page_data = await self.fetch_page(url, depth)
             pages.append(page_data)

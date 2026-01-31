@@ -27,6 +27,7 @@ def main():
     \b
     Audit Examples:
       saa audit https://mysite.com -o report.md       # Save to file
+      saa audit https://mysite.com -q                 # Quiet (status line only)
       saa audit https://mysite.com -v                 # Verbose output
       saa audit https://mysite.com -l anthropic:sonnet  # Use Claude
       saa audit https://mysite.com --no-llm           # Skip LLM analysis
@@ -58,10 +59,11 @@ def main():
 @click.option("--no-llm", is_flag=True, help="Skip LLM analysis (basic report only)")
 @click.option("--output", "-o", type=click.Path(), help="Output report path (overrides config)")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
+@click.option("--quiet", "-q", is_flag=True, help="Quiet mode (single status line)")
 @click.option("--pacing", type=click.Choice(["off", "low", "medium", "high"]),
               default="medium", help="Crawl pacing level")
 def audit(url: str, plan: str, no_plan: bool, mode: str, depth: int, max_pages: int,
-          llm: str, no_llm: bool, output: str, verbose: bool, pacing: str):
+          llm: str, no_llm: bool, output: str, verbose: bool, quiet: bool, pacing: str):
     """Run an audit on URL.
 
     Examples:
@@ -120,7 +122,7 @@ def audit(url: str, plan: str, no_plan: bool, mode: str, depth: int, max_pages: 
 
     # Run the async audit
     try:
-        asyncio.run(_run_audit(url, config, plan, output, verbose, mode, depth, max_pages, no_llm))
+        asyncio.run(_run_audit(url, config, plan, output, verbose, quiet, mode, depth, max_pages, no_llm))
     except KeyboardInterrupt:
         click.echo("\nAudit cancelled.")
     except Exception as e:
@@ -128,10 +130,33 @@ def audit(url: str, plan: str, no_plan: bool, mode: str, depth: int, max_pages: 
         raise SystemExit(1)
 
 
+def _make_progress_callback(quiet: bool):
+    """Create a progress callback for quiet mode."""
+    if not quiet:
+        return None
+
+    import shutil
+    term_width = shutil.get_terminal_size().columns
+
+    def callback(current: int, total: int, url: str):
+        # Truncate URL to fit terminal
+        prefix = f"[{current}/{total}] "
+        max_url_len = term_width - len(prefix) - 1
+        if len(url) > max_url_len:
+            url = url[:max_url_len-3] + "..."
+        line = f"{prefix}{url}"
+        # Pad to terminal width to clear previous content
+        line = line.ljust(term_width - 1)
+        click.echo(f"\r{line}", nl=False)
+
+    return callback
+
+
 async def _run_audit(url: str, config, plan_path: str, output_path: str,
-                     verbose: bool, mode: str, depth: int, max_pages: int, no_llm: bool):
+                     verbose: bool, quiet: bool, mode: str, depth: int, max_pages: int, no_llm: bool):
     """Execute the audit asynchronously."""
-    click.echo(f"Auditing: {url}")
+    if not quiet:
+        click.echo(f"Auditing: {url}")
 
     # Load audit plan if provided
     plan_content = None
@@ -140,9 +165,20 @@ async def _run_audit(url: str, config, plan_path: str, output_path: str,
         if verbose:
             click.echo(f"Loaded audit plan ({len(plan_content)} chars)")
 
+    # Create progress callback for quiet mode
+    progress_callback = _make_progress_callback(quiet)
+
     # Crawl pages
-    async with Crawler(config, verbose=verbose) as crawler:
+    async with Crawler(config, verbose=verbose, progress_callback=progress_callback) as crawler:
         pages = await crawler.crawl(url, max_depth=depth, max_pages=max_pages)
+
+    # Clear progress line and show summary in quiet mode
+    if quiet:
+        import shutil
+        term_width = shutil.get_terminal_size().columns
+        click.echo("\r" + " " * (term_width - 1) + "\r", nl=False)  # Clear line
+        successful = sum(1 for p in pages if not p.error)
+        click.echo(f"Crawled {len(pages)} pages ({successful} successful)")
 
     # Check if we got any successful pages
     successful_pages = [p for p in pages if not p.error]
