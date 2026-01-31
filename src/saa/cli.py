@@ -461,12 +461,18 @@ def init(system: bool, update_plan: bool):
 
     env_file = saa_dir / ".env"
     if not env_file.exists():
+        # Different defaults for system vs user install
+        if system:
+            playwright_line = "PLAYWRIGHT_BROWSERS_PATH=/opt/playwright\n"
+        else:
+            playwright_line = "# PLAYWRIGHT_BROWSERS_PATH=/opt/playwright\n"
+
         env_file.write_text(
             "# SAA Configuration\n"
             "# Uncomment and edit the settings you want to change.\n"
             "#\n"
-            "# Chromium: Playwright auto-detects, only set to override\n"
-            "# SAA_CHROMIUM_PATH=/path/to/chromium\n"
+            "# Playwright browser location (system-wide: /opt/playwright)\n"
+            f"{playwright_line}"
             "#\n"
             "# Default LLM provider:model (xai:grok, anthropic:sonnet, anthropic:opus)\n"
             "# SAA_DEFAULT_LLM=xai:grok\n"

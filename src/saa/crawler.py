@@ -29,10 +29,13 @@ class Crawler:
     async def __aenter__(self):
         """Start browser with stealth."""
         self._playwright = await async_playwright().start()
-        self.browser = await self._playwright.chromium.launch(
-            headless=self.config.headless,
-            executable_path=self.config.chromium_path,
-        )
+
+        # Only pass executable_path if explicitly configured
+        launch_opts = {"headless": self.config.headless}
+        if self.config.chromium_path:
+            launch_opts["executable_path"] = self.config.chromium_path
+
+        self.browser = await self._playwright.chromium.launch(**launch_opts)
         self.context = await self.browser.new_context(
             viewport={"width": 1920, "height": 1080},
             user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",

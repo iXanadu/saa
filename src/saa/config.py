@@ -10,8 +10,8 @@ from dotenv import load_dotenv
 class Config:
     """SAA configuration with hierarchical loading."""
 
-    # Browser settings
-    chromium_path: str = "/Applications/Chromium.app/Contents/MacOS/Chromium"
+    # Browser settings (empty = let Playwright auto-detect)
+    chromium_path: str = ""
     headless: bool = True
 
     # Crawling settings
