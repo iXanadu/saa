@@ -37,6 +37,8 @@ vi ~/.saa/.keys
 
 System-wide install with shared API keys - any user can run `saa`.
 
+**Prerequisite:** Root's SSH key must be added to GitHub (for private repo access).
+
 ```bash
 # 1. Install pipx system-wide
 sudo apt install pipx
@@ -50,23 +52,18 @@ sudo PLAYWRIGHT_BROWSERS_PATH=/opt/playwright /opt/pipx/venvs/saa/bin/playwright
 sudo PLAYWRIGHT_BROWSERS_PATH=/opt/playwright /opt/pipx/venvs/saa/bin/playwright install-deps
 sudo chmod -R a+rX /opt/playwright
 
-# 4. Initialize system config
+# 4. Initialize system config (auto-configures PLAYWRIGHT_BROWSERS_PATH)
 sudo saa init --system
 
-# 5. Configure Playwright path (add to .env)
-echo 'PLAYWRIGHT_BROWSERS_PATH=/opt/playwright' | sudo tee -a /etc/saa/.env
-
-# 6. Add API keys
+# 5. Add API keys
 sudo vi /etc/saa/.keys
 # Uncomment and add:
 # XAI_API_KEY=xai-your-key-here
 # ANTHROPIC_API_KEY=sk-ant-your-key-here
 
-# 7. (Optional) Restrict key access to specific users
-sudo groupadd saa-users
-sudo chgrp saa-users /etc/saa/.keys
-sudo chmod 640 /etc/saa/.keys
-sudo usermod -aG saa-users USERNAME
+# 6. Verify installation
+saa --version
+saa audit https://example.com --no-llm -o test.md
 ```
 
 ### Server Install - Quick Copy/Paste
@@ -80,8 +77,15 @@ sudo PLAYWRIGHT_BROWSERS_PATH=/opt/playwright /opt/pipx/venvs/saa/bin/playwright
 sudo PLAYWRIGHT_BROWSERS_PATH=/opt/playwright /opt/pipx/venvs/saa/bin/playwright install-deps
 sudo chmod -R a+rX /opt/playwright
 sudo saa init --system
-echo 'PLAYWRIGHT_BROWSERS_PATH=/opt/playwright' | sudo tee -a /etc/saa/.env
 sudo vi /etc/saa/.keys   # Add your API keys
+```
+
+### Server Update
+
+`saa update` doesn't work for system-wide installs. Use:
+
+```bash
+sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx reinstall saa
 ```
 
 ### Development Install
