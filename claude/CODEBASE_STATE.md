@@ -1,7 +1,8 @@
 # Project Codebase State
 
 **Last Updated:** 2026-01-31
-**Status:** MVP Complete - Distributed via Private GitHub
+**Version:** 0.3.5
+**Status:** Feature-Complete CLI - Ready for Server Deployment
 
 ---
 
@@ -15,45 +16,83 @@ Site Audit Agent (SAA) - CLI tool for automated website audits using stealthy he
 
 ```
 src/saa/
-├── __init__.py      # Package version (0.1.0)
-├── cli.py           # Click CLI (audit, config, init commands)
+├── __init__.py      # Package version (0.3.5)
+├── cli.py           # Click CLI (audit, config, init, check, update, plan)
 ├── config.py        # Hierarchical config loading (/etc/saa → ~/.saa → .env)
 ├── models.py        # Pydantic models (PageData, Finding, etc.)
-├── crawler.py       # Playwright stealth crawler with BFS
+├── crawler.py       # Playwright stealth crawler with BFS + progress callback
 ├── checks.py        # Check registry (meta_tags, images, schema, etc.)
 ├── llm.py           # LLM dispatcher (xAI Grok, Anthropic Claude)
 ├── plan.py          # Audit plan loading
-└── report.py        # Markdown report generation with LLM enhancement
+├── report.py        # Markdown report generation with LLM enhancement
+└── data/
+    └── default-audit-plan.md  # Bundled audit plan template
 ```
 
 ---
 
-## Recent Major Work Completed
+## CLI Commands
 
-### 2026-01-31: Distribution & Multi-User Setup
-- Private GitHub repo: `git@github.com:iXanadu/saa.git`
-- System-wide config support (`/etc/saa/`)
-- `saa init --system` for admin setup
-- pipx installation working
-- Improved help documentation
+| Command | Description |
+|---------|-------------|
+| `saa audit URL` | Run audit on URL |
+| `saa init` | Setup config, check dependencies |
+| `saa init --system` | Setup system-wide config (/etc/saa/) |
+| `saa init --update-plan` | Update audit plan (archives old) |
+| `saa check` | Check for updates (code and plan) |
+| `saa update` | Update via pipx |
+| `saa plan` | Manage audit plans (list, rollback) |
+| `saa config --list` | Show current config |
 
-### 2026-01-30: Report Quality & LLM Integration
-- Full page/finding data sent to LLM (not truncated)
-- Specific URL references in reports (not vague "multiple pages")
-- Custom audit plan support (`--plan` flag)
-- 180s LLM timeout for large reports
+---
+
+## Key Audit Flags
+
+| Flag | Description |
+|------|-------------|
+| `-o, --output` | Output file path |
+| `-q, --quiet` | Quiet mode (single updating status line) |
+| `-v, --verbose` | Verbose output |
+| `-m, --mode` | own (deep) or competitor (light) |
+| `-p, --plan` | Custom audit plan |
+| `-l, --llm` | LLM provider (xai:grok, anthropic:sonnet) |
+| `--no-llm` | Skip LLM analysis |
+| `--pacing` | Crawl speed (off, low, medium, high) |
+
+---
+
+## Recent Work (2026-01-31 Session 2)
+
+### Self-Update System
+- `saa check` - Compares installed vs GitHub version
+- `saa update` - Runs pipx reinstall
+- Detects missing config/plan and advises
+
+### Plan Management
+- Default audit plan bundled with package
+- `saa init` copies plan to config directory
+- `saa init --update-plan` - Updates plan, archives old to `plans/`
+- `saa plan --list` - List archived plans
+- `saa plan --rollback` - Restore previous plan
+
+### UX Improvements
+- `--quiet/-q` mode with updating status line
+- Comprehensive help examples
+- macOS + Linux group commands in init help
 
 ---
 
 ## Installation
 
 ```bash
-# pipx (recommended for CLI tools)
+# Single user (pipx)
 pipx install git+ssh://git@github.com/iXanadu/saa.git
-~/.local/pipx/venvs/saa/bin/playwright install chromium
+saa init
 
 # Multi-user server
 sudo pip install git+ssh://git@github.com/iXanadu/saa.git
+sudo playwright install chromium
+sudo playwright install-deps   # Linux only
 sudo saa init --system
 ```
 
@@ -70,20 +109,49 @@ sudo saa init --system
 
 ---
 
+## Config Files
+
+```
+{config_dir}/
+├── .env              # Settings (LLM, crawl limits)
+├── .keys             # API keys (XAI_API_KEY, ANTHROPIC_API_KEY)
+├── audit-plan.md     # Default audit plan
+└── plans/            # Archived plan versions
+    └── audit-plan_{timestamp}.md
+```
+
+---
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `SAA_DEFAULT_LLM` | Default LLM (xai:grok, anthropic:sonnet) |
+| `SAA_DEFAULT_PLAN` | Path to audit plan |
+| `SAA_OUTPUT_DIR` | Auto-save reports here |
+| `SAA_MAX_PAGES` | Max pages to crawl |
+| `SAA_DEFAULT_DEPTH` | Max crawl depth |
+| `XAI_API_KEY` | xAI API key |
+| `ANTHROPIC_API_KEY` | Anthropic API key |
+
+---
+
 ## Testing Status
 
-- [x] Manual testing on dev.trustworthyagents.com (33 pages)
+- [x] Manual testing on dev.trustworthyagents.com
 - [x] pipx install tested
-- [ ] Multi-user server deployment
+- [x] Self-update system tested
+- [x] Plan management tested
+- [ ] Multi-user server deployment (next)
 - [ ] Automated tests (pytest)
 
 ---
 
 ## Next Planned Work
 
-1. Test on production server with multiple users
-2. Tweak `Default-Test-Plan.md` for report format preferences
-3. Add version bumping workflow
+1. Deploy and test on production server
+2. Test multi-user access with group permissions
+3. Refine audit plan based on report quality
 4. Consider additional checks (broken links, accessibility)
 
 ---
@@ -91,5 +159,5 @@ sudo saa init --system
 ## Reference
 
 - **Specs:** `claude/specs/`
-- **Audit Plan:** `claude/specs/Default-Test-Plan.md`
+- **Bundled Plan:** `src/saa/data/default-audit-plan.md`
 - **Session Progress:** `claude/session_progress/`
