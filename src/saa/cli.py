@@ -162,16 +162,71 @@ def config(set_key, get_key, list_all):
         click.echo("Use --list to see all config, --get KEY to get a value")
 
 
+def _check_chromium_installed() -> bool:
+    """Check if Playwright Chromium is installed."""
+    import sys
+    from pathlib import Path
+
+    # Check common Playwright cache locations
+    if sys.platform == "darwin":
+        cache_dir = Path.home() / "Library/Caches/ms-playwright"
+    else:
+        cache_dir = Path.home() / ".cache/ms-playwright"
+
+    if not cache_dir.exists():
+        return False
+
+    # Look for chromium directory
+    chromium_dirs = list(cache_dir.glob("chromium-*"))
+    return len(chromium_dirs) > 0
+
+
+def _install_chromium() -> bool:
+    """Install Playwright Chromium. Returns True on success."""
+    import shutil
+    import subprocess
+    import sys
+
+    # Find playwright executable
+    playwright_cmd = shutil.which("playwright")
+
+    # If not in PATH, try the pipx venv location
+    if not playwright_cmd:
+        pipx_playwright = Path.home() / ".local/pipx/venvs/saa/bin/playwright"
+        if pipx_playwright.exists():
+            playwright_cmd = str(pipx_playwright)
+
+    if not playwright_cmd:
+        return False
+
+    result = subprocess.run([playwright_cmd, "install", "chromium"])
+    return result.returncode == 0
+
+
+def _check_api_keys(keys_file: Path) -> dict:
+    """Check which API keys are configured. Returns dict of provider: bool."""
+    keys = {"xai": False, "anthropic": False}
+    if not keys_file.exists():
+        return keys
+
+    content = keys_file.read_text()
+    for line in content.splitlines():
+        line = line.strip()
+        if line.startswith("#") or "=" not in line:
+            continue
+        if line.startswith("XAI_API_KEY=") and len(line.split("=", 1)[1]) > 5:
+            keys["xai"] = True
+        if line.startswith("ANTHROPIC_API_KEY=") and len(line.split("=", 1)[1]) > 5:
+            keys["anthropic"] = True
+    return keys
+
+
 @main.command()
 @click.option("--system", is_flag=True, help="Initialize system-wide config at /etc/saa/ (requires sudo)")
 def init(system: bool):
-    """Initialize SAA configuration directory.
+    """Initialize SAA and check dependencies.
 
-    Creates config files with templates:
-
-    \b
-    .env   - Settings (chromium path, default LLM, crawl limits)
-    .keys  - API keys for LLM providers (xAI, Anthropic)
+    Checks Playwright/Chromium, creates config files, validates setup.
 
     \b
     Config loading priority (later overrides earlier):
@@ -187,6 +242,29 @@ def init(system: bool):
     import os
     from pathlib import Path
 
+    click.echo("SAA Setup\n")
+
+    # 1. Check Chromium
+    click.echo("Checking dependencies...")
+    chromium_ok = _check_chromium_installed()
+    if chromium_ok:
+        click.echo("  [ok] Playwright Chromium installed")
+    else:
+        click.echo("  [!!] Playwright Chromium not found")
+        if click.confirm("       Install Chromium now?", default=True):
+            click.echo("       Installing Chromium (this may take a minute)...")
+            if _install_chromium():
+                click.echo("       [ok] Chromium installed")
+                chromium_ok = True
+            else:
+                click.echo("       [!!] Installation failed. Try manually:")
+                click.echo("            playwright install chromium")
+        else:
+            click.echo("       Skipped. Install later with: playwright install chromium")
+
+    click.echo("")
+
+    # 2. Setup config directory
     if system:
         saa_dir = Path("/etc/saa")
         if os.geteuid() != 0:
@@ -195,9 +273,8 @@ def init(system: bool):
     else:
         saa_dir = Path.home() / ".saa"
 
+    click.echo(f"Config directory: {saa_dir}")
     saa_dir.mkdir(exist_ok=True)
-    click.echo(f"Initializing SAA config at {saa_dir}")
-    click.echo("")
 
     env_file = saa_dir / ".env"
     if not env_file.exists():
@@ -205,8 +282,8 @@ def init(system: bool):
             "# SAA Configuration\n"
             "# Uncomment and edit the settings you want to change.\n"
             "#\n"
-            "# Path to Chromium browser (auto-detected if not set)\n"
-            "# SAA_CHROMIUM_PATH=/usr/bin/chromium\n"
+            "# Chromium: Playwright auto-detects, only set to override\n"
+            "# SAA_CHROMIUM_PATH=/path/to/chromium\n"
             "#\n"
             "# Default LLM provider:model (xai:grok, anthropic:sonnet, anthropic:opus)\n"
             "# SAA_DEFAULT_LLM=xai:grok\n"
@@ -215,12 +292,12 @@ def init(system: bool):
             "# SAA_MAX_PAGES=50\n"
             "# SAA_DEFAULT_DEPTH=3\n"
         )
-        click.echo(f"  Created: {env_file}")
-        click.echo(f"           Settings like chromium path, default LLM, crawl limits")
+        click.echo(f"  [ok] Created {env_file}")
     else:
-        click.echo(f"  Exists:  {env_file}")
+        click.echo(f"  [ok] Exists  {env_file}")
 
     keys_file = saa_dir / ".keys"
+    keys_created = False
     if not keys_file.exists():
         keys_file.write_text(
             "# API Keys for LLM providers\n"
@@ -234,20 +311,43 @@ def init(system: bool):
             "# ANTHROPIC_API_KEY=sk-ant-your-key-here\n"
         )
         if system:
-            os.chmod(keys_file, 0o640)  # root:group readable
-            click.echo(f"  Created: {keys_file} (permissions: 640)")
+            os.chmod(keys_file, 0o640)
         else:
-            os.chmod(keys_file, 0o600)  # owner only
-            click.echo(f"  Created: {keys_file} (permissions: 600)")
-        click.echo(f"           API keys for xAI (Grok) and/or Anthropic (Claude)")
+            os.chmod(keys_file, 0o600)
+        click.echo(f"  [ok] Created {keys_file}")
+        keys_created = True
     else:
-        click.echo(f"  Exists:  {keys_file}")
+        click.echo(f"  [ok] Exists  {keys_file}")
 
+    # 3. Check API keys
     click.echo("")
-    click.echo("Next steps:")
-    click.echo(f"  1. Edit {keys_file} and add your API key(s)")
-    click.echo(f"  2. (Optional) Edit {env_file} to customize settings")
-    click.echo(f"  3. Run: saa audit https://example.com")
+    click.echo("API keys:")
+    api_keys = _check_api_keys(keys_file)
+    any_key = False
+    if api_keys["xai"]:
+        click.echo("  [ok] xAI (Grok) configured")
+        any_key = True
+    if api_keys["anthropic"]:
+        click.echo("  [ok] Anthropic (Claude) configured")
+        any_key = True
+    if not any_key:
+        click.echo("  [!!] No API keys configured")
+        click.echo(f"       Edit {keys_file} to add your key(s)")
+
+    # 4. Summary
+    click.echo("")
+    click.echo("=" * 40)
+    all_ok = chromium_ok and any_key
+    if all_ok:
+        click.echo("Ready! Run: saa audit https://example.com")
+    else:
+        click.echo("Setup incomplete:")
+        if not chromium_ok:
+            click.echo("  - Install Chromium: playwright install chromium")
+        if not any_key:
+            click.echo(f"  - Add API key(s) to {keys_file}")
+
+    # 5. Multi-user instructions for --system
     if system:
         click.echo("")
         click.echo("For multi-user access, set group permissions:")
