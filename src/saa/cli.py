@@ -367,40 +367,57 @@ def init(system: bool):
 def check():
     """Check if a newer version is available on GitHub.
 
-    Compares your installed version against the latest commit on GitHub.
+    Fetches the latest version from GitHub and compares with installed.
     Uses SSH to access the private repository.
     """
     import shutil
     import subprocess
-    from datetime import datetime
+    import tempfile
 
-    click.echo(f"Installed version: {__version__}")
-
-    # Get install timestamp from package location
-    import saa
-    pkg_path = Path(saa.__file__).parent
-    mtime = pkg_path.stat().st_mtime
-    install_time = datetime.fromtimestamp(mtime)
-    click.echo(f"Installed at: {install_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    click.echo(f"Installed: {__version__}")
 
     # Check remote via git
     if not shutil.which("git"):
-        click.echo("\nCannot check remote: git not found")
+        click.echo("Cannot check remote: git not found")
         return
 
-    click.echo("\nChecking GitHub...")
+    click.echo("Checking GitHub...")
     try:
-        result = subprocess.run(
-            ["git", "ls-remote", "git@github.com:iXanadu/saa.git", "HEAD"],
-            capture_output=True, text=True, timeout=10
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            remote_commit = result.stdout.strip().split()[0][:7]
-            click.echo(f"Latest commit: {remote_commit}")
-            click.echo("\nIf you've pushed changes after your install time, run:")
-            click.echo("  saa update")
-        else:
-            click.echo("Could not reach GitHub (check SSH key)")
+        # Shallow clone to temp dir to get remote version
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = subprocess.run(
+                ["git", "clone", "--depth=1", "--quiet",
+                 "git@github.com:iXanadu/saa.git", tmpdir],
+                capture_output=True, text=True, timeout=30
+            )
+            if result.returncode != 0:
+                click.echo("Could not reach GitHub (check SSH key)")
+                return
+
+            # Read version from cloned repo
+            init_file = Path(tmpdir) / "src" / "saa" / "__init__.py"
+            if not init_file.exists():
+                click.echo("Could not find version in repo")
+                return
+
+            remote_version = None
+            for line in init_file.read_text().splitlines():
+                if line.startswith("__version__"):
+                    remote_version = line.split("=")[1].strip().strip('"\'')
+                    break
+
+            if not remote_version:
+                click.echo("Could not parse remote version")
+                return
+
+            click.echo(f"Latest:    {remote_version}")
+
+            # Compare versions
+            if remote_version == __version__:
+                click.echo("\n[ok] You're up to date!")
+            else:
+                click.echo(f"\n[!!] Update available: {__version__} -> {remote_version}")
+                click.echo("     Run: saa update")
     except subprocess.TimeoutExpired:
         click.echo("Timeout connecting to GitHub")
     except Exception as e:
