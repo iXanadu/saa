@@ -13,20 +13,17 @@ saa audit https://example.com    # Run an audit
 
 ## Installation
 
-### Single User (macOS/Linux with pipx) - Recommended
+### Single User (macOS/Linux) - Recommended
 
 ```bash
 # Install pipx if needed
 brew install pipx        # macOS
 # or: sudo apt install pipx   # Ubuntu/Debian
 
-# Install SAA
-pipx install git+https://github.com/iXanadu/saa.git
+# Install SAA from PyPI
+pipx install site-audit-agent
 
-# Install Chromium for Playwright
-~/.local/pipx/venvs/saa/bin/playwright install chromium
-
-# Setup config
+# Setup (installs Chromium, creates config)
 saa init
 
 # Add your API keys
@@ -40,16 +37,12 @@ System-wide install with shared settings - each user provides their own API keys
 ```bash
 # 1. Install pipx and SAA (as root)
 sudo apt install pipx
-sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+https://github.com/iXanadu/saa.git
+sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install site-audit-agent
 
 # 2. Initialize system config (auto-installs Playwright Chromium to /opt/playwright)
 sudo saa init --system
 
-# 3. Each user sets up their own API keys
-saa init              # Creates ~/.saa/.keys
-vi ~/.saa/.keys       # Add your API key(s)
-
-# 4. Verify
+# 3. Verify
 saa --version
 saa audit https://example.com --no-llm -o test.md
 ```
@@ -59,19 +52,28 @@ saa audit https://example.com --no-llm -o test.md
 ```bash
 # As root
 sudo apt install pipx
-sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+https://github.com/iXanadu/saa.git
+sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install site-audit-agent
 sudo saa init --system
+```
 
-# As each user
-saa init && vi ~/.saa/.keys
+### Install from GitHub (Latest/Dev)
+
+```bash
+# Single user
+pipx install git+https://github.com/iXanadu/saa.git
+
+# Multi-user server
+sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+https://github.com/iXanadu/saa.git
 ```
 
 ### Server Update
 
-`saa update` doesn't work for system-wide installs. Use:
-
 ```bash
-sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx reinstall saa
+# PyPI version
+sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx upgrade site-audit-agent
+
+# GitHub version
+sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx reinstall site-audit-agent
 ```
 
 ### Development Install

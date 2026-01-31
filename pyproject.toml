@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "saa"
-version = "0.4.8"
+name = "site-audit-agent"
+version = "0.5.0"
 description = "Site Audit Agent - CLI tool for automated website audits"
 readme = "README.md"
 requires-python = ">=3.10"

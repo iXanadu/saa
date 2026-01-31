@@ -304,13 +304,13 @@ def _install_chromium(system: bool = False) -> bool:
 
     # Try system pipx location
     if not playwright_cmd:
-        system_playwright = Path("/opt/pipx/venvs/saa/bin/playwright")
+        system_playwright = Path("/opt/pipx/venvs/site-audit-agent/bin/playwright")
         if system_playwright.exists():
             playwright_cmd = str(system_playwright)
 
     # Try user pipx location
     if not playwright_cmd:
-        pipx_playwright = Path.home() / ".local/pipx/venvs/saa/bin/playwright"
+        pipx_playwright = Path.home() / ".local/pipx/venvs/site-audit-agent/bin/playwright"
         if pipx_playwright.exists():
             playwright_cmd = str(pipx_playwright)
 
@@ -807,9 +807,9 @@ def check():
 
 @main.command()
 def update():
-    """Update saa to the latest version from GitHub.
+    """Update saa to the latest version.
 
-    Runs 'pipx reinstall saa' to pull the latest code.
+    Tries 'pipx upgrade' first (PyPI), then 'pipx reinstall' (GitHub).
     Requires pipx to be installed.
     """
     import shutil
@@ -820,13 +820,25 @@ def update():
         click.echo("\nInstall pipx first:")
         click.echo("  brew install pipx")
         click.echo("\nOr update manually with pip:")
-        click.echo("  pip install --upgrade git+https://github.com/iXanadu/saa.git")
+        click.echo("  pip install --upgrade site-audit-agent")
         raise SystemExit(1)
 
-    click.echo("Updating saa via pipx reinstall...")
-    click.echo("(This pulls the latest code from GitHub)\n")
+    click.echo("Updating saa...")
 
-    result = subprocess.run(["pipx", "reinstall", "saa"])
+    # Try upgrade first (works for PyPI installs)
+    result = subprocess.run(
+        ["pipx", "upgrade", "site-audit-agent"],
+        capture_output=True, text=True
+    )
+
+    if result.returncode == 0:
+        click.echo(result.stdout)
+        click.echo("Update complete! Run 'saa check' to verify.")
+        raise SystemExit(0)
+
+    # Fall back to reinstall (works for GitHub installs)
+    click.echo("Trying reinstall (GitHub install)...")
+    result = subprocess.run(["pipx", "reinstall", "site-audit-agent"])
 
     if result.returncode == 0:
         click.echo("\nUpdate complete! Run 'saa check' to verify.")
