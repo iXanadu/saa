@@ -1,6 +1,7 @@
 """CLI entry point for Site Audit Agent."""
 
 import asyncio
+import os
 from pathlib import Path
 
 import click
