@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "saa"
-version = "0.2.1"
+version = "0.3.0"
 description = "Site Audit Agent - CLI tool for automated website audits"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -32,6 +32,7 @@ saa = "saa.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/saa"]
+artifacts = ["src/saa/data/*"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/saa"]
+include = ["src/saa", "src/saa/data/*"]

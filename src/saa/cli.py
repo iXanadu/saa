@@ -23,7 +23,8 @@ def main():
 
 @main.command()
 @click.argument("url")
-@click.option("--plan", "-p", type=click.Path(exists=True), help="Path to MD audit plan")
+@click.option("--plan", "-p", type=click.Path(exists=True), help="Path to MD audit plan (overrides config)")
+@click.option("--no-plan", is_flag=True, help="Skip audit plan even if configured")
 @click.option("--mode", "-m", type=click.Choice(["own", "competitor"]), default="own",
               help="Audit mode: own (deep) or competitor (light)")
 @click.option("--depth", "-d", type=int, default=None,
@@ -32,11 +33,11 @@ def main():
               help="Max pages to crawl (default: 50 for own, 20 for competitor)")
 @click.option("--llm", "-l", default=None, help="LLM provider:model (e.g., xai:grok, anthropic:sonnet)")
 @click.option("--no-llm", is_flag=True, help="Skip LLM analysis (basic report only)")
-@click.option("--output", "-o", type=click.Path(), help="Output report path")
+@click.option("--output", "-o", type=click.Path(), help="Output report path (overrides config)")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
 @click.option("--pacing", type=click.Choice(["off", "low", "medium", "high"]),
               default="medium", help="Crawl pacing level")
-def audit(url: str, plan: str, mode: str, depth: int, max_pages: int,
+def audit(url: str, plan: str, no_plan: bool, mode: str, depth: int, max_pages: int,
           llm: str, no_llm: bool, output: str, verbose: bool, pacing: str):
     """Run an audit on URL.
 
@@ -45,6 +46,9 @@ def audit(url: str, plan: str, mode: str, depth: int, max_pages: int,
         saa audit https://competitor.com --mode competitor --llm xai:grok
         saa audit https://mysite.com --no-llm -o report.md
     """
+    from datetime import datetime
+    from urllib.parse import urlparse
+
     config = load_config()
 
     # Override config with CLI options
@@ -52,6 +56,26 @@ def audit(url: str, plan: str, mode: str, depth: int, max_pages: int,
     config.pacing = pacing
     if llm:
         config.default_llm = llm
+
+    # Resolve plan: CLI > config > none
+    if no_plan:
+        plan = None
+    elif not plan and config.default_plan:
+        plan_path = Path(config.default_plan)
+        if plan_path.exists():
+            plan = str(plan_path)
+        elif verbose:
+            click.echo(f"Warning: Configured plan not found: {config.default_plan}")
+
+    # Resolve output: CLI > config (auto-generate filename) > stdout
+    if not output and config.output_dir:
+        output_dir = Path(config.output_dir)
+        if output_dir.exists():
+            domain = urlparse(url).netloc.replace(":", "_")
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+            output = str(output_dir / f"{domain}_{timestamp}.md")
+        elif verbose:
+            click.echo(f"Warning: Output dir not found: {config.output_dir}")
 
     # Set depth and max_pages based on mode if not specified
     # For "own" mode: full crawl (high limits to capture entire site)
@@ -66,6 +90,8 @@ def audit(url: str, plan: str, mode: str, depth: int, max_pages: int,
         click.echo(f"Mode: {mode}, Depth: {depth}, Max pages: {max_pages}, Pacing: {pacing}")
         if plan:
             click.echo(f"Using audit plan: {plan}")
+        if output:
+            click.echo(f"Output: {output}")
         if not no_llm:
             click.echo(f"LLM: {config.default_llm}")
 
@@ -276,6 +302,26 @@ def init(system: bool):
     click.echo(f"Config directory: {saa_dir}")
     saa_dir.mkdir(exist_ok=True)
 
+    # Copy default audit plan from package
+    plan_file = saa_dir / "audit-plan.md"
+    if not plan_file.exists():
+        try:
+            import importlib.resources as pkg_resources
+            try:
+                # Python 3.11+
+                plan_source = pkg_resources.files("saa.data").joinpath("default-audit-plan.md")
+                plan_content = plan_source.read_text()
+            except (TypeError, AttributeError):
+                # Fallback for older Python
+                with pkg_resources.open_text("saa.data", "default-audit-plan.md") as f:
+                    plan_content = f.read()
+            plan_file.write_text(plan_content)
+            click.echo(f"  [ok] Created {plan_file}")
+        except Exception as e:
+            click.echo(f"  [!!] Could not copy default audit plan: {e}")
+    else:
+        click.echo(f"  [ok] Exists  {plan_file}")
+
     env_file = saa_dir / ".env"
     if not env_file.exists():
         env_file.write_text(
@@ -291,6 +337,13 @@ def init(system: bool):
             "# Crawl limits\n"
             "# SAA_MAX_PAGES=50\n"
             "# SAA_DEFAULT_DEPTH=3\n"
+            "#\n"
+            f"# Default audit plan (created above)\n"
+            f"SAA_DEFAULT_PLAN={plan_file}\n"
+            "#\n"
+            "# Output directory for reports (auto-generates filename)\n"
+            "# If not set, prints to stdout\n"
+            "# SAA_OUTPUT_DIR=/var/saa/reports\n"
         )
         click.echo(f"  [ok] Created {env_file}")
     else:

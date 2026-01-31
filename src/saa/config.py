@@ -27,6 +27,10 @@ class Config:
     # Mode settings
     mode: str = "own"  # own or competitor
 
+    # Audit plan and output
+    default_plan: str = ""  # Path to default audit plan (empty = none)
+    output_dir: str = ""  # Directory for reports (empty = stdout)
+
     # Pacing delays (min, max) in seconds
     pacing_delays: dict = field(default_factory=lambda: {
         "off": (0, 0),
@@ -73,5 +77,7 @@ def load_config() -> Config:
     config.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
     config.max_pages = int(os.getenv("SAA_MAX_PAGES", config.max_pages))
     config.default_depth = int(os.getenv("SAA_DEFAULT_DEPTH", config.default_depth))
+    config.default_plan = os.getenv("SAA_DEFAULT_PLAN", config.default_plan)
+    config.output_dir = os.getenv("SAA_OUTPUT_DIR", config.output_dir)
 
     return config
