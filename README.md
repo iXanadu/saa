@@ -2,29 +2,86 @@
 
 CLI tool for automated website audits using stealthy headless Chromium and LLM-powered analysis.
 
+## Prerequisites
+
+- Python 3.11+
+- Chromium browser installed
+- API keys for LLM providers (xAI and/or Anthropic)
+
 ## Installation
 
 ```bash
-pip install -e .
+# Install from private repo (requires SSH key linked to GitHub)
+pip install git+ssh://git@github.com/iXanadu/saa.git
+
+# Initialize config directory
+saa init
+
+# Install Playwright browsers
+playwright install chromium
+```
+
+## Configuration
+
+After running `saa init`, edit the config files in `~/.saa/`:
+
+**~/.saa/.keys** (API keys - keep secret):
+```
+XAI_API_KEY=your-xai-key-here
+ANTHROPIC_API_KEY=your-anthropic-key-here
+```
+
+**~/.saa/.env** (optional settings):
+```
+SAA_CHROMIUM_PATH=/path/to/chromium
+SAA_DEFAULT_LLM=xai:grok
+SAA_MAX_PAGES=50
+SAA_DEFAULT_DEPTH=3
 ```
 
 ## Usage
 
 ```bash
-# Run an audit
+# Basic audit
 saa audit https://example.com
 
-# With options
-saa audit https://example.com --mode own --verbose --pacing medium
+# Deep audit of your own site
+saa audit https://mysite.com --mode own --verbose
 
-# Initialize config
-saa init
+# Light competitor scan
+saa audit https://competitor.com --mode competitor
 
-# View config
-saa config --list
+# With custom audit plan
+saa audit https://mysite.com --plan ./my-audit-plan.md
+
+# Skip LLM analysis (basic report only)
+saa audit https://example.com --no-llm
+
+# Save report to file
+saa audit https://example.com -o report.md
 ```
 
 ## Modes
 
-- **own**: Deep audit of your own sites (exhaustive checks, depth 3)
-- **competitor**: Light learning scan (focus on insights, depth 1)
+- **own**: Deep audit of your own sites (depth 10, up to 200 pages, exhaustive checks)
+- **competitor**: Light learning scan (depth 1, up to 20 pages, focus on insights)
+
+## Options
+
+| Option | Description |
+|--------|-------------|
+| `--mode`, `-m` | Audit mode: `own` or `competitor` |
+| `--depth`, `-d` | Max crawl depth |
+| `--max-pages` | Max pages to crawl |
+| `--llm`, `-l` | LLM provider:model (e.g., `xai:grok`, `anthropic:sonnet`) |
+| `--no-llm` | Skip LLM analysis |
+| `--plan`, `-p` | Path to custom audit plan (markdown) |
+| `--output`, `-o` | Output file path |
+| `--pacing` | Crawl pacing: `off`, `low`, `medium`, `high` |
+| `--verbose`, `-v` | Verbose output |
+
+## Updating
+
+```bash
+pip install --upgrade git+ssh://git@github.com/iXanadu/saa.git
+```
