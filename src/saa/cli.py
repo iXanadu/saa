@@ -251,18 +251,20 @@ def config(set_key, get_key, list_all):
 
 def _check_chromium_installed(system: bool = False) -> bool:
     """Check if Playwright Chromium is installed."""
-    import os
     import sys
 
-    # For system installs, check /opt/playwright
+    # Always check system location /opt/playwright first (works for all users)
+    system_dir = Path("/opt/playwright")
+    if system_dir.exists():
+        chromium_dirs = list(system_dir.glob("chromium-*"))
+        if chromium_dirs:
+            return True
+
+    # For system installs, only check /opt/playwright
     if system:
-        system_dir = Path("/opt/playwright")
-        if system_dir.exists():
-            chromium_dirs = list(system_dir.glob("chromium-*"))
-            return len(chromium_dirs) > 0
         return False
 
-    # Check PLAYWRIGHT_BROWSERS_PATH first
+    # Check PLAYWRIGHT_BROWSERS_PATH env var
     browsers_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
     if browsers_path:
         cache_dir = Path(browsers_path)
