@@ -549,17 +549,38 @@ def check():
                 click.echo(f"\n[!!] Update available: {__version__} -> {remote_version}")
                 click.echo("     Run: saa update")
 
-            # Check if bundled plan in new version differs from installed
-            remote_plan = Path(tmpdir) / "src" / "saa" / "data" / "default-audit-plan.md"
-            if remote_plan.exists():
-                # Check both user and system locations
-                for saa_dir in [Path.home() / ".saa", Path("/etc/saa")]:
-                    plan_file = saa_dir / "audit-plan.md"
-                    if plan_file.exists():
+            # Check config and plan status
+            user_dir = Path.home() / ".saa"
+            system_dir = Path("/etc/saa")
+
+            # Find which config location is in use (if any)
+            active_dir = None
+            if system_dir.exists():
+                active_dir = system_dir
+            elif user_dir.exists():
+                active_dir = user_dir
+
+            if not active_dir:
+                click.echo("\n[!!] No config found")
+                click.echo("     Run: saa init (user) or sudo saa init --system")
+            else:
+                plan_file = active_dir / "audit-plan.md"
+                if not plan_file.exists():
+                    click.echo(f"\n[!!] No audit plan in {active_dir}")
+                    if active_dir == system_dir:
+                        click.echo("     Run: sudo saa init --system --update-plan")
+                    else:
+                        click.echo("     Run: saa init --update-plan")
+                else:
+                    # Check if plan needs update
+                    remote_plan = Path(tmpdir) / "src" / "saa" / "data" / "default-audit-plan.md"
+                    if remote_plan.exists():
                         if remote_plan.read_text().strip() != plan_file.read_text().strip():
-                            click.echo(f"\n[!!] New audit plan available for {saa_dir}")
-                            click.echo("     Run: saa init --update-plan")
-                        break
+                            click.echo(f"\n[!!] New audit plan available for {active_dir}")
+                            if active_dir == system_dir:
+                                click.echo("     Run: sudo saa init --system --update-plan")
+                            else:
+                                click.echo("     Run: saa init --update-plan")
     except subprocess.TimeoutExpired:
         click.echo("Timeout connecting to GitHub")
     except Exception as e:
