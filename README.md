@@ -2,124 +2,246 @@
 
 CLI tool for automated website audits using stealthy headless Chromium and LLM-powered analysis.
 
-## Prerequisites
+## Quick Start
 
-- Python 3.11+
-- Chromium browser installed
-- API keys for LLM providers (xAI and/or Anthropic)
+```bash
+saa init                         # Setup config and API keys
+saa audit https://example.com    # Run an audit
+```
+
+---
 
 ## Installation
 
-```bash
-# Install from private repo (requires SSH key linked to GitHub)
-pip install git+ssh://git@github.com/iXanadu/saa.git
+### Single User (macOS/Linux with pipx) - Recommended
 
-# Initialize config directory
+```bash
+# Install pipx if needed
+brew install pipx        # macOS
+# or: sudo apt install pipx   # Ubuntu/Debian
+
+# Install SAA
+pipx install git+ssh://git@github.com/iXanadu/saa.git
+
+# Install Chromium for Playwright
+~/.local/pipx/venvs/saa/bin/playwright install chromium
+
+# Setup config
 saa init
 
-# Install Playwright browsers
+# Add your API keys
+nano ~/.saa/.keys
+```
+
+### Multi-User Server (Ubuntu/Debian)
+
+System-wide install with shared API keys - any user can run `saa`.
+
+```bash
+# 1. Install pipx system-wide
+sudo apt install pipx
+
+# 2. Install SAA to /opt with binary in /usr/local/bin
+sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+ssh://git@github.com/iXanadu/saa.git
+
+# 3. Install Playwright Chromium and dependencies
+sudo /opt/pipx/venvs/saa/bin/playwright install chromium
+sudo /opt/pipx/venvs/saa/bin/playwright install-deps
+
+# 4. Initialize system config
+sudo saa init --system
+
+# 5. Add API keys
+sudo nano /etc/saa/.keys
+# Uncomment and add:
+# XAI_API_KEY=xai-your-key-here
+# ANTHROPIC_API_KEY=sk-ant-your-key-here
+
+# 6. (Optional) Restrict key access to specific users
+sudo groupadd saa-users
+sudo chgrp saa-users /etc/saa/.keys
+sudo chmod 640 /etc/saa/.keys
+sudo usermod -aG saa-users USERNAME
+```
+
+### Development Install
+
+```bash
+cd /path/to/saa
+pip install -e .
 playwright install chromium
 ```
 
+---
+
 ## Configuration
 
-Config is loaded in order (later overrides earlier):
-1. `/etc/saa/` - System-wide (admin-managed)
-2. `~/.saa/` - User override
-3. `./.env`, `./.keys` - Project override
-4. Environment variables - Highest priority
+Config loads in order (later overrides earlier):
 
-### Single-user setup
+| Location | Purpose | Precedence |
+|----------|---------|------------|
+| `/etc/saa/` | System-wide (admin) | 1 (lowest) |
+| `~/.saa/` | User config | 2 |
+| `./.env`, `./.keys` | Project override | 3 |
+| Environment vars | Runtime override | 4 (highest) |
 
-After running `saa init`, edit the config files in `~/.saa/`:
+### Config Files
 
-**~/.saa/.keys** (API keys - keep secret):
 ```
-XAI_API_KEY=your-xai-key-here
-ANTHROPIC_API_KEY=your-anthropic-key-here
-```
-
-**~/.saa/.env** (optional settings):
-```
-SAA_CHROMIUM_PATH=/path/to/chromium
-SAA_DEFAULT_LLM=xai:grok
-SAA_MAX_PAGES=50
-SAA_DEFAULT_DEPTH=3
+~/.saa/           # or /etc/saa/ for system
+├── .env          # Settings
+├── .keys         # API keys (keep secret!)
+├── audit-plan.md # Default audit plan
+└── plans/        # Archived plan versions
 ```
 
-### Multi-user server setup (centrally managed keys)
+### Environment Variables
 
-Admin sets up system-wide config so users don't need their own API keys:
+| Variable | Description |
+|----------|-------------|
+| `XAI_API_KEY` | xAI API key (for Grok) |
+| `ANTHROPIC_API_KEY` | Anthropic API key (for Claude) |
+| `SAA_DEFAULT_LLM` | Default LLM (e.g., `xai:grok`, `anthropic:sonnet`) |
+| `SAA_DEFAULT_PLAN` | Path to default audit plan |
+| `SAA_OUTPUT_DIR` | Directory for auto-saved reports |
+| `SAA_MAX_PAGES` | Max pages to crawl |
+| `SAA_DEFAULT_DEPTH` | Max crawl depth |
 
-```bash
-# Create system config directory
-sudo mkdir -p /etc/saa
-
-# Add API keys
-sudo nano /etc/saa/.keys
-# XAI_API_KEY=your-key
-# ANTHROPIC_API_KEY=your-key
-
-# Add settings
-sudo nano /etc/saa/.env
-# SAA_CHROMIUM_PATH=/usr/bin/chromium
-# SAA_DEFAULT_LLM=xai:grok
-
-# Restrict access to keys (optional: create saa-users group)
-sudo groupadd saa-users
-sudo chown root:saa-users /etc/saa/.keys
-sudo chmod 640 /etc/saa/.keys
-
-# Add users who can run saa
-sudo usermod -aG saa-users projectA
-sudo usermod -aG saa-users projectB
-```
-
-Users in the `saa-users` group can now run `saa` without managing keys.
+---
 
 ## Usage
 
+### Basic Examples
+
 ```bash
-# Basic audit
-saa audit https://example.com
-
-# Deep audit of your own site
-saa audit https://mysite.com --mode own --verbose
-
-# Light competitor scan
-saa audit https://competitor.com --mode competitor
-
-# With custom audit plan
-saa audit https://mysite.com --plan ./my-audit-plan.md
-
-# Skip LLM analysis (basic report only)
-saa audit https://example.com --no-llm
-
-# Save report to file
-saa audit https://example.com -o report.md
+saa audit https://example.com              # Basic audit
+saa audit https://mysite.com -o report.md  # Save to file
+saa audit https://mysite.com -q            # Quiet mode (status line only)
+saa audit https://mysite.com -v            # Verbose output
 ```
 
-## Modes
+### Audit Modes
 
-- **own**: Deep audit of your own sites (depth 10, up to 200 pages, exhaustive checks)
-- **competitor**: Light learning scan (depth 1, up to 20 pages, focus on insights)
+```bash
+saa audit https://mysite.com -m own        # Deep audit (default)
+saa audit https://competitor.com -m competitor  # Light scan
+```
 
-## Options
+| Mode | Depth | Max Pages | Purpose |
+|------|-------|-----------|---------|
+| `own` | 10 | 200 | Deep audit of your sites |
+| `competitor` | 1 | 20 | Light scan for insights |
 
-| Option | Description |
-|--------|-------------|
-| `--mode`, `-m` | Audit mode: `own` or `competitor` |
-| `--depth`, `-d` | Max crawl depth |
-| `--max-pages` | Max pages to crawl |
-| `--llm`, `-l` | LLM provider:model (e.g., `xai:grok`, `anthropic:sonnet`) |
-| `--no-llm` | Skip LLM analysis |
-| `--plan`, `-p` | Path to custom audit plan (markdown) |
-| `--output`, `-o` | Output file path |
-| `--pacing` | Crawl pacing: `off`, `low`, `medium`, `high` |
-| `--verbose`, `-v` | Verbose output |
+### LLM Options
+
+```bash
+saa audit URL -l xai:grok           # Use xAI Grok
+saa audit URL -l anthropic:sonnet   # Use Claude Sonnet
+saa audit URL --no-llm              # Skip LLM (basic report)
+```
+
+### Custom Audit Plans
+
+```bash
+saa audit URL -p ./my-plan.md       # Use custom plan
+saa audit URL --no-plan             # Skip default plan
+```
+
+### Crawl Pacing
+
+```bash
+saa audit URL --pacing off          # No delays (fast, detectable)
+saa audit URL --pacing low          # 0.5-1.5s delays
+saa audit URL --pacing medium       # 1-3s delays (default)
+saa audit URL --pacing high         # 2-5s delays (stealthy)
+```
+
+---
+
+## Management Commands
+
+### Check for Updates
+
+```bash
+saa check                # Compare installed vs latest
+saa update               # Update via pipx reinstall
+```
+
+### Plan Management
+
+```bash
+saa plan                 # Show current plan location
+saa plan --list          # List archived versions
+saa plan --rollback      # Restore previous version
+saa init --update-plan   # Update to latest bundled plan
+```
+
+### View Config
+
+```bash
+saa config --list        # Show current settings
+```
+
+---
+
+## All Options
+
+```
+saa audit [OPTIONS] URL
+
+Options:
+  -p, --plan PATH          Custom audit plan (overrides config)
+  --no-plan                Skip audit plan
+  -m, --mode [own|competitor]  Audit mode
+  -d, --depth INTEGER      Max crawl depth
+  --max-pages INTEGER      Max pages to crawl
+  -l, --llm TEXT           LLM provider:model
+  --no-llm                 Skip LLM analysis
+  -o, --output PATH        Output file path
+  -q, --quiet              Quiet mode (status line only)
+  -v, --verbose            Verbose output
+  --pacing [off|low|medium|high]  Crawl pacing
+```
+
+---
 
 ## Updating
 
 ```bash
-pip install --upgrade git+ssh://git@github.com/iXanadu/saa.git
+# Check if update available
+saa check
+
+# Update (if installed via pipx)
+saa update
+
+# Or manually
+pipx reinstall saa
+```
+
+---
+
+## Troubleshooting
+
+### "playwright: command not found"
+
+Use Python module directly:
+```bash
+python3 -m playwright install chromium
+# Or for pipx install:
+~/.local/pipx/venvs/saa/bin/playwright install chromium
+```
+
+### "No module named playwright" with sudo
+
+Install to system pipx location:
+```bash
+sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install ...
+```
+
+### Permission denied on /etc/saa/.keys
+
+Add user to saa-users group:
+```bash
+sudo usermod -aG saa-users $USER
+# Log out and back in
 ```
