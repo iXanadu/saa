@@ -40,35 +40,46 @@ class Config:
     })
 
 
+def _safe_load_dotenv(path: Path, **kwargs) -> bool:
+    """Load dotenv file, gracefully handling permission errors."""
+    if not path.exists():
+        return False
+    try:
+        load_dotenv(path, **kwargs)
+        return True
+    except PermissionError:
+        # File exists but not readable (e.g., /etc/saa/.keys with wrong perms)
+        # Skip silently - user keys in ~/.saa/.keys will override anyway
+        return False
+
+
 def load_config() -> Config:
     """Load configuration from .env files with hierarchical precedence.
 
     Load order (later overrides earlier):
     1. Built-in defaults
-    2. /etc/saa/.env and /etc/saa/.keys (system-wide, admin-managed)
-    3. ~/.saa/.env and ~/.saa/.keys (user override)
+    2. /etc/saa/.env (system-wide settings, admin-managed)
+    3. ~/.saa/.env and ~/.saa/.keys (user config and keys)
     4. ./.env and ./.keys (project override)
     5. Environment variables (highest priority)
+
+    Note: API keys should be in ~/.saa/.keys (user-private) or env vars,
+    not in system-wide /etc/saa/ which would expose keys to all users.
     """
     config = Config()
 
-    # System-wide config (admin-managed)
+    # System-wide config (shared settings only, not keys)
     system_dir = Path("/etc/saa")
-    if (system_dir / ".env").exists():
-        load_dotenv(system_dir / ".env")
-    if (system_dir / ".keys").exists():
-        load_dotenv(system_dir / ".keys")
+    _safe_load_dotenv(system_dir / ".env")
 
-    # User config (override system)
+    # User config (personal settings and keys)
     user_dir = Path.home() / ".saa"
-    if (user_dir / ".env").exists():
-        load_dotenv(user_dir / ".env", override=True)
-    if (user_dir / ".keys").exists():
-        load_dotenv(user_dir / ".keys", override=True)
+    _safe_load_dotenv(user_dir / ".env", override=True)
+    _safe_load_dotenv(user_dir / ".keys", override=True)
 
     # Project config (override user)
-    load_dotenv(".env", override=True)
-    load_dotenv(".keys", override=True)
+    _safe_load_dotenv(Path(".env"), override=True)
+    _safe_load_dotenv(Path(".keys"), override=True)
 
     # Override from environment (highest priority)
     config.chromium_path = os.getenv("SAA_CHROMIUM_PATH", config.chromium_path)

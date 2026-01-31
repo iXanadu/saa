@@ -325,21 +325,34 @@ def _install_chromium(system: bool = False) -> bool:
         return result.returncode == 0
 
 
-def _check_api_keys(keys_file: Path) -> dict:
-    """Check which API keys are configured. Returns dict of provider: bool."""
-    keys = {"xai": False, "anthropic": False}
-    if not keys_file.exists():
-        return keys
+def _check_api_keys(keys_file: Path = None) -> dict:
+    """Check which API keys are configured. Returns dict of provider: bool.
 
-    content = keys_file.read_text()
-    for line in content.splitlines():
-        line = line.strip()
-        if line.startswith("#") or "=" not in line:
-            continue
-        if line.startswith("XAI_API_KEY=") and len(line.split("=", 1)[1]) > 5:
-            keys["xai"] = True
-        if line.startswith("ANTHROPIC_API_KEY=") and len(line.split("=", 1)[1]) > 5:
-            keys["anthropic"] = True
+    Checks both the keys file (if provided and readable) and environment variables.
+    """
+    keys = {"xai": False, "anthropic": False}
+
+    # Check environment variables first
+    if os.getenv("XAI_API_KEY", ""):
+        keys["xai"] = True
+    if os.getenv("ANTHROPIC_API_KEY", ""):
+        keys["anthropic"] = True
+
+    # Check keys file if provided
+    if keys_file and keys_file.exists():
+        try:
+            content = keys_file.read_text()
+            for line in content.splitlines():
+                line = line.strip()
+                if line.startswith("#") or "=" not in line:
+                    continue
+                if line.startswith("XAI_API_KEY=") and len(line.split("=", 1)[1]) > 5:
+                    keys["xai"] = True
+                if line.startswith("ANTHROPIC_API_KEY=") and len(line.split("=", 1)[1]) > 5:
+                    keys["anthropic"] = True
+        except PermissionError:
+            pass  # Can't read file, rely on env vars
+
     return keys
 
 
@@ -543,9 +556,19 @@ def init(system: bool, update_plan: bool):
     else:
         click.echo(f"  [ok] Exists  {env_file}")
 
-    keys_file = saa_dir / ".keys"
+    # Keys file - only create for user installs (not system)
+    # System installs should have users create their own ~/.saa/.keys
+    keys_file = saa_dir / ".keys" if not system else Path.home() / ".saa" / ".keys"
     keys_created = False
-    if not keys_file.exists():
+    if system:
+        # For system install, check if user has personal keys set up
+        user_keys = Path.home() / ".saa" / ".keys"
+        if user_keys.exists():
+            click.echo(f"  [ok] User keys at {user_keys}")
+        else:
+            click.echo(f"  [!!] No user keys - run 'saa init' to create ~/.saa/.keys")
+            keys_created = True  # Triggers "setup incomplete" message
+    elif not keys_file.exists():
         keys_file.write_text(
             "# API Keys for LLM providers\n"
             "# At least one key is required for LLM-powered analysis.\n"
@@ -557,19 +580,17 @@ def init(system: bool, update_plan: bool):
             "# XAI_API_KEY=xai-your-key-here\n"
             "# ANTHROPIC_API_KEY=sk-ant-your-key-here\n"
         )
-        if system:
-            os.chmod(keys_file, 0o640)
-        else:
-            os.chmod(keys_file, 0o600)
+        os.chmod(keys_file, 0o600)
         click.echo(f"  [ok] Created {keys_file}")
         keys_created = True
     else:
         click.echo(f"  [ok] Exists  {keys_file}")
 
-    # 3. Check API keys
+    # 3. Check API keys (from user's keys file or env vars)
     click.echo("")
     click.echo("API keys:")
-    api_keys = _check_api_keys(keys_file)
+    user_keys_file = Path.home() / ".saa" / ".keys"
+    api_keys = _check_api_keys(user_keys_file if user_keys_file.exists() else None)
     any_key = False
     if api_keys["xai"]:
         click.echo("  [ok] xAI (Grok) configured")
@@ -579,7 +600,10 @@ def init(system: bool, update_plan: bool):
         any_key = True
     if not any_key:
         click.echo("  [!!] No API keys configured")
-        click.echo(f"       Edit {keys_file} to add your key(s)")
+        if system:
+            click.echo("       Run 'saa init' to create ~/.saa/.keys")
+        else:
+            click.echo(f"       Edit {keys_file} to add your key(s)")
 
     # 4. Summary
     click.echo("")
@@ -592,22 +616,18 @@ def init(system: bool, update_plan: bool):
         if not chromium_ok:
             click.echo("  - Install Chromium: playwright install chromium")
         if not any_key:
-            click.echo(f"  - Add API key(s) to {keys_file}")
+            if system:
+                click.echo("  - Run 'saa init' (as user) to create ~/.saa/.keys")
+                click.echo("  - Then edit ~/.saa/.keys to add your API key(s)")
+            else:
+                click.echo(f"  - Edit {keys_file} to add your API key(s)")
 
-    # 5. Multi-user instructions for --system
+    # 5. Note for system installs
     if system:
         click.echo("")
-        click.echo("For multi-user access, set group permissions:")
-        click.echo("")
-        click.echo("  Linux (Ubuntu/Debian):")
-        click.echo("    sudo groupadd saa-users")
-        click.echo("    sudo usermod -aG saa-users USERNAME")
-        click.echo(f"    sudo chgrp saa-users {keys_file}")
-        click.echo("")
-        click.echo("  macOS:")
-        click.echo("    sudo dseditgroup -o create saa-users")
-        click.echo("    sudo dseditgroup -o edit -a USERNAME -t user saa-users")
-        click.echo(f"    sudo chgrp saa-users {keys_file}")
+        click.echo("System setup complete. Each user needs their own API keys:")
+        click.echo("  saa init          # Creates ~/.saa/.keys")
+        click.echo("  vi ~/.saa/.keys   # Add your API key(s)")
 
 
 @main.command()

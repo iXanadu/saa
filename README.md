@@ -35,19 +35,19 @@ vi ~/.saa/.keys
 
 ### Multi-User Server (Ubuntu/Debian)
 
-System-wide install with shared API keys - any user can run `saa`.
+System-wide install with shared settings - each user provides their own API keys.
 
 ```bash
-# 1. Install pipx and SAA
+# 1. Install pipx and SAA (as root)
 sudo apt install pipx
 sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+https://github.com/iXanadu/saa.git
 
-# 2. Initialize (auto-installs Playwright Chromium to /opt/playwright)
+# 2. Initialize system config (auto-installs Playwright Chromium to /opt/playwright)
 sudo saa init --system
 
-# 3. Add API keys
-sudo vi /etc/saa/.keys
-# Uncomment and add your keys
+# 3. Each user sets up their own API keys
+saa init              # Creates ~/.saa/.keys
+vi ~/.saa/.keys       # Add your API key(s)
 
 # 4. Verify
 saa --version
@@ -57,10 +57,13 @@ saa audit https://example.com --no-llm -o test.md
 ### Server Install - Quick Copy/Paste
 
 ```bash
+# As root
 sudo apt install pipx
 sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+https://github.com/iXanadu/saa.git
 sudo saa init --system
-sudo vi /etc/saa/.keys   # Add your API keys
+
+# As each user
+saa init && vi ~/.saa/.keys
 ```
 
 ### Server Update
@@ -243,14 +246,6 @@ python3 -m playwright install chromium
 Install to system pipx location:
 ```bash
 sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install ...
-```
-
-### Permission denied on /etc/saa/.keys
-
-Add user to saa-users group:
-```bash
-sudo usermod -aG saa-users $USER
-# Log out and back in
 ```
 
 ---
