@@ -256,5 +256,77 @@ def init(system: bool):
         click.echo(f"  sudo usermod -aG saa-users USERNAME")
 
 
+@main.command()
+def check():
+    """Check if a newer version is available on GitHub.
+
+    Compares your installed version against the latest commit on GitHub.
+    Uses SSH to access the private repository.
+    """
+    import shutil
+    import subprocess
+    from datetime import datetime
+
+    click.echo(f"Installed version: {__version__}")
+
+    # Get install timestamp from package location
+    import saa
+    pkg_path = Path(saa.__file__).parent
+    mtime = pkg_path.stat().st_mtime
+    install_time = datetime.fromtimestamp(mtime)
+    click.echo(f"Installed at: {install_time.strftime('%Y-%m-%d %H:%M:%S')}")
+
+    # Check remote via git
+    if not shutil.which("git"):
+        click.echo("\nCannot check remote: git not found")
+        return
+
+    click.echo("\nChecking GitHub...")
+    try:
+        result = subprocess.run(
+            ["git", "ls-remote", "git@github.com:iXanadu/saa.git", "HEAD"],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            remote_commit = result.stdout.strip().split()[0][:7]
+            click.echo(f"Latest commit: {remote_commit}")
+            click.echo("\nIf you've pushed changes after your install time, run:")
+            click.echo("  saa update")
+        else:
+            click.echo("Could not reach GitHub (check SSH key)")
+    except subprocess.TimeoutExpired:
+        click.echo("Timeout connecting to GitHub")
+    except Exception as e:
+        click.echo(f"Error checking remote: {e}")
+
+
+@main.command()
+def update():
+    """Update saa to the latest version from GitHub.
+
+    Runs 'pipx reinstall saa' to pull the latest code.
+    Requires pipx to be installed.
+    """
+    import shutil
+    import subprocess
+
+    if not shutil.which("pipx"):
+        click.echo("Error: pipx not found.", err=True)
+        click.echo("\nInstall pipx first:")
+        click.echo("  brew install pipx")
+        click.echo("\nOr update manually with pip:")
+        click.echo("  pip install --upgrade git+ssh://git@github.com/iXanadu/saa.git")
+        raise SystemExit(1)
+
+    click.echo("Updating saa via pipx reinstall...")
+    click.echo("(This pulls the latest code from GitHub)\n")
+
+    result = subprocess.run(["pipx", "reinstall", "saa"])
+
+    if result.returncode == 0:
+        click.echo("\nUpdate complete! Run 'saa check' to verify.")
+    raise SystemExit(result.returncode)
+
+
 if __name__ == "__main__":
     main()
