@@ -29,9 +29,10 @@ def main():
       saa audit https://mysite.com -o report.md       # Save to file
       saa audit https://mysite.com -q                 # Quiet (status line only)
       saa audit https://mysite.com -v                 # Verbose output
+      saa audit https://mysite.com -m own             # Deep audit (default)
+      saa audit https://competitor.com -m competitor  # Light competitor scan
       saa audit https://mysite.com -l anthropic:sonnet  # Use Claude
       saa audit https://mysite.com --no-llm           # Skip LLM analysis
-      saa audit https://competitor.com -m competitor  # Light competitor scan
       saa audit https://mysite.com -p custom-plan.md  # Custom audit plan
       saa audit https://mysite.com --pacing high      # Slower, stealthier
 
