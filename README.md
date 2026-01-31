@@ -21,7 +21,7 @@ brew install pipx        # macOS
 # or: sudo apt install pipx   # Ubuntu/Debian
 
 # Install SAA
-pipx install git+ssh://git@github.com/iXanadu/saa.git
+pipx install git+https://github.com/iXanadu/saa.git
 
 # Install Chromium for Playwright
 ~/.local/pipx/venvs/saa/bin/playwright install chromium
@@ -37,12 +37,10 @@ vi ~/.saa/.keys
 
 System-wide install with shared API keys - any user can run `saa`.
 
-**Prerequisite:** Root's SSH key must be added to GitHub (for private repo access).
-
 ```bash
 # 1. Install pipx and SAA
 sudo apt install pipx
-sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+ssh://git@github.com/iXanadu/saa.git
+sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+https://github.com/iXanadu/saa.git
 
 # 2. Initialize (auto-installs Playwright Chromium to /opt/playwright)
 sudo saa init --system
@@ -59,9 +57,8 @@ saa audit https://example.com --no-llm -o test.md
 ### Server Install - Quick Copy/Paste
 
 ```bash
-# Prerequisites: root SSH key added to GitHub
 sudo apt install pipx
-sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+ssh://git@github.com/iXanadu/saa.git
+sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+https://github.com/iXanadu/saa.git
 sudo saa init --system
 sudo vi /etc/saa/.keys   # Add your API keys
 ```
@@ -255,3 +252,17 @@ Add user to saa-users group:
 sudo usermod -aG saa-users $USER
 # Log out and back in
 ```
+
+---
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## Acknowledgments
+
+- Built with assistance from [Claude](https://claude.ai) (Anthropic)
+- Uses [Playwright](https://playwright.dev/) for browser automation
+- Stealth capabilities via [playwright-stealth](https://github.com/nickmilo/playwright-stealth)

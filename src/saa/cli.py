@@ -634,11 +634,11 @@ def check():
         with tempfile.TemporaryDirectory() as tmpdir:
             result = subprocess.run(
                 ["git", "clone", "--depth=1", "--quiet",
-                 "git@github.com:iXanadu/saa.git", tmpdir],
+                 "https://github.com/iXanadu/saa.git", tmpdir],
                 capture_output=True, text=True, timeout=30
             )
             if result.returncode != 0:
-                click.echo("Could not reach GitHub (check SSH key)")
+                click.echo("Could not reach GitHub (check network)")
                 return
 
             # Read version from cloned repo
@@ -719,7 +719,7 @@ def update():
         click.echo("\nInstall pipx first:")
         click.echo("  brew install pipx")
         click.echo("\nOr update manually with pip:")
-        click.echo("  pip install --upgrade git+ssh://git@github.com/iXanadu/saa.git")
+        click.echo("  pip install --upgrade git+https://github.com/iXanadu/saa.git")
         raise SystemExit(1)
 
     click.echo("Updating saa via pipx reinstall...")

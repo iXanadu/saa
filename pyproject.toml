@@ -4,11 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "saa"
-version = "0.3.8"
+version = "0.4.0"
 description = "Site Audit Agent - CLI tool for automated website audits"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
+license = "GPL-3.0-or-later"
 dependencies = [
     "click>=8.1.0",
     "playwright>=1.40.0",
