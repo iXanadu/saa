@@ -44,24 +44,44 @@ sudo apt install pipx
 # 2. Install SAA to /opt with binary in /usr/local/bin
 sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+ssh://git@github.com/iXanadu/saa.git
 
-# 3. Install Playwright Chromium and dependencies
-sudo /opt/pipx/venvs/saa/bin/playwright install chromium
-sudo /opt/pipx/venvs/saa/bin/playwright install-deps
+# 3. Install Playwright Chromium system-wide
+sudo mkdir -p /opt/playwright
+sudo PLAYWRIGHT_BROWSERS_PATH=/opt/playwright /opt/pipx/venvs/saa/bin/playwright install chromium
+sudo PLAYWRIGHT_BROWSERS_PATH=/opt/playwright /opt/pipx/venvs/saa/bin/playwright install-deps
+sudo chmod -R a+rX /opt/playwright
 
 # 4. Initialize system config
 sudo saa init --system
 
-# 5. Add API keys
+# 5. Configure Playwright path (add to .env)
+echo 'PLAYWRIGHT_BROWSERS_PATH=/opt/playwright' | sudo tee -a /etc/saa/.env
+
+# 6. Add API keys
 sudo vi /etc/saa/.keys
 # Uncomment and add:
 # XAI_API_KEY=xai-your-key-here
 # ANTHROPIC_API_KEY=sk-ant-your-key-here
 
-# 6. (Optional) Restrict key access to specific users
+# 7. (Optional) Restrict key access to specific users
 sudo groupadd saa-users
 sudo chgrp saa-users /etc/saa/.keys
 sudo chmod 640 /etc/saa/.keys
 sudo usermod -aG saa-users USERNAME
+```
+
+### Server Install - Quick Copy/Paste
+
+```bash
+# Prerequisites: root SSH key added to GitHub
+sudo apt install pipx
+sudo PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+ssh://git@github.com/iXanadu/saa.git
+sudo mkdir -p /opt/playwright
+sudo PLAYWRIGHT_BROWSERS_PATH=/opt/playwright /opt/pipx/venvs/saa/bin/playwright install chromium
+sudo PLAYWRIGHT_BROWSERS_PATH=/opt/playwright /opt/pipx/venvs/saa/bin/playwright install-deps
+sudo chmod -R a+rX /opt/playwright
+sudo saa init --system
+echo 'PLAYWRIGHT_BROWSERS_PATH=/opt/playwright' | sudo tee -a /etc/saa/.env
+sudo vi /etc/saa/.keys   # Add your API keys
 ```
 
 ### Development Install
