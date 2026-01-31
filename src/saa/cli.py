@@ -17,7 +17,21 @@ from saa.plan import load_plan
 @click.group()
 @click.version_option(version=__version__, prog_name="saa")
 def main():
-    """Site Audit Agent - Automated website audits with LLM analysis."""
+    """Site Audit Agent - Automated website audits with LLM analysis.
+
+    \b
+    Quick Start:
+      saa init                        # Setup config and API keys
+      saa audit https://example.com   # Run an audit
+
+    \b
+    Examples:
+      saa audit https://mysite.com --mode own -v      # Deep audit, verbose
+      saa audit https://competitor.com --mode competitor
+      saa check                       # Check for updates
+      saa update                      # Update to latest version
+      saa plan --list                 # List archived plans
+    """
     pass
 
 

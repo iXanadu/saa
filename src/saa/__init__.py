@@ -1,3 +1,3 @@
 """Site Audit Agent - CLI tool for automated website audits."""
 
-__version__ = "0.3.2"
+__version__ = "0.3.3"
