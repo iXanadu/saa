@@ -1,6 +1,6 @@
 # Project Context Memory
 
-**Last Updated:** 2026-01-31
+**Last Updated:** 2026-02-07
 **Version:** 0.5.1
 **Status:** Published to PyPI - Production Ready
 
@@ -9,6 +9,10 @@
 ## Current Focus
 
 First public release complete. Package published to PyPI as `site-audit-agent`. Ready for real-world use.
+
+### Recent (2026-02-07)
+- Fixed claude-memory MCP connection: added `MEMORY_API_URL=http://macmini:8920` to `~/.claude.json` MCP env config
+- Memory backend runs on Mac Mini (PostgreSQL + Ollama)
 
 ---
 
@@ -126,10 +130,11 @@ saa plan --rollback               # Restore previous
 
 ## Next Session Priorities
 
-1. **Use in real project** - Actual site audits
-2. **Refine audit plan** - Improve based on results
-3. **Consider additional checks** - Accessibility, broken links
-4. **Automated tests** - pytest
+1. **Verify memory MCP** - Restart Claude Code, test memory_status works
+2. **Use in real project** - Actual site audits
+3. **Refine audit plan** - Improve based on results
+4. **Consider additional checks** - Accessibility, broken links
+5. **Automated tests** - pytest
 
 ---
 
@@ -138,6 +143,7 @@ saa plan --rollback               # Restore previous
 - `saa update` tries upgrade then reinstall (handles both PyPI and GitHub installs)
 - Playwright Chromium is separate download (~300MB)
 - pyenv can intercept commands - code checks pipx paths first
+- Memory MCP: needs `MEMORY_API_URL` env var in `~/.claude.json` to reach macmini backend
 
 ---
 

@@ -1,6 +1,6 @@
 # Project Codebase State
 
-**Last Updated:** 2026-01-31
+**Last Updated:** 2026-02-07
 **Version:** 0.5.1
 **Status:** Published to PyPI - Production Ready
 
@@ -69,7 +69,16 @@ src/saa/
 
 ---
 
-## Recent Work (2026-01-31 - Public Release)
+## Recent Work (2026-02-07 - Memory MCP Fix)
+
+### Claude Memory MCP
+- Fixed connection: MCP server was defaulting to localhost instead of macmini:8920
+- Added MEMORY_API_URL env var to ~/.claude.json MCP config
+- Backend runs on Mac Mini with PostgreSQL + Ollama for semantic memory
+
+---
+
+## Previous Work (2026-01-31 - Public Release)
 
 ### Public Release
 - GPL-3.0 license added
@@ -177,10 +186,11 @@ pipx install git+https://github.com/iXanadu/saa.git
 
 ## Next Planned Work
 
-1. Use in real projects
-2. Refine audit plan based on results
-3. Consider additional checks (accessibility, broken links)
-4. Automated tests
+1. Verify memory MCP fix (restart Claude Code, test memory_status)
+2. Use in real projects
+3. Refine audit plan based on results
+4. Consider additional checks (accessibility, broken links)
+5. Automated tests
 
 ---
 
