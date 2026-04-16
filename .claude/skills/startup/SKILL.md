@@ -1,3 +1,8 @@
+---
+name: startup
+description: Session startup for this project — sweep memory, read CLAUDE.md, check git state, then summarize and ask what we're working on.
+---
+
 Search persistent memory for this project's context:
 1. memory_search with scope=shared — cross-project lessons and patterns
 2. memory_search with scope=project — project state, recent sessions, decisions
