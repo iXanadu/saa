@@ -29,25 +29,9 @@ Then use the Edit tool to replace in `.env`:
 
 Read any files in `claude/specs/` (especially `prd.md`) to understand what this project should do.
 
-## 4. Create Database (if needed)
+## Database — MANUAL, NOT done by `/init`
 
-Ask user if they want you to create the PostgreSQL databases. If yes, run these commands:
-
-```bash
-# Create dedicated user for this app
-createuser -h postgres.o6.org -U db_admin projectname
-
-# Set password (uses shared DB_PASSWORD from .keys)
-psql -h postgres.o6.org -U db_admin -d postgres -c "ALTER USER projectname WITH PASSWORD 'R%qMuGnizHl^V0iD';"
-
-# Grant db_admin ability to set ownership to new user
-psql -h postgres.o6.org -U db_admin -d postgres -c "GRANT projectname TO db_admin;"
-
-# Create dev and prod databases owned by app user
-createdb -h postgres.o6.org -U db_admin -O projectname projectname_dev
-createdb -h postgres.o6.org -U db_admin -O projectname projectname_prod
-```
-(Uses db_admin credentials from ~/.pgpass)
+`/init` never creates or touches databases — a deliberate manual step; never hardcode a credential here, source it from `.keys`.
 
 ## 5. Requirements.txt
 
