@@ -1,6 +1,6 @@
 ---
 name: init
-description: Initialize a new project — env/keys/gitignore from proj-base, read specs, create databases, seed requirements.txt, update state files, and push to GitHub.
+description: Initialize a new project — env/keys/gitignore from proj-base, read specs, seed requirements.txt, update state files, and push to GitHub. Does NOT create databases (a deliberate manual step).
 ---
 
 This is a NEW PROJECT initialization. Follow these steps:
